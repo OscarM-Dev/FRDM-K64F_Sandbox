@@ -4,5 +4,5 @@ C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F
 C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F_Practices\FRDM-K64F_Sandbox\phy/fsl_phy.h:206:24:PHY_GetLinkStatus	16	static
 C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F_Practices\FRDM-K64F_Sandbox\phy/fsl_phy.h:223:24:PHY_GetLinkSpeedDuplex	24	static
 C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F_Practices\FRDM-K64F_Sandbox\drivers/fsl_sysmpu.h:268:20:SYSMPU_Enable	16	static
-../source/enet_txrx_transfer.c:95:13:ENET_BuildBroadCastFrame	16	static
-../source/enet_txrx_transfer.c:117:5:main	200	static
+../source/enet_txrx_transfer.c:99:13:ENET_BuildBroadCastFrame	16	static
+../source/enet_txrx_transfer.c:125:5:main	200	static

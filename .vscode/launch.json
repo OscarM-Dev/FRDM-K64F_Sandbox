@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "cppdbg",
+      "request": "launch",
+      "args": [],
+      "stopAtEntry": false,
+      "externalConsole": true,
+      "cwd": "c:/Users/Familia/Documents/Especialidad_ITESO/Semestre_1/Redes_comunicacion/K64F_Practices/FRDM-K64F_Sandbox/source",
+      "program": "c:/Users/Familia/Documents/Especialidad_ITESO/Semestre_1/Redes_comunicacion/K64F_Practices/FRDM-K64F_Sandbox/source/build/Debug/outDebug",
+      "MIMode": "gdb",
+      "miDebuggerPath": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    }
+  ]
+}
