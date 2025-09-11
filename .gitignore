@@ -1,0 +1,4 @@
+#Ignore all the temporal and compilation files.
+*.o
+*.d
+*.axf
