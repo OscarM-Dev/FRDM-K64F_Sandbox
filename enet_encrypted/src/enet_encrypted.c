@@ -1,0 +1,261 @@
+/**
+ * @file enet_encrypted.c
+ * @author Oscar Mercado omercadorico@gmail.com
+ * @brief This file contains the definition of the API related tools.
+ * 
+ */
+#include "enet_encrypted.h"
+
+//Global data.
+
+/*******************************************************************************
+ * AES RELATED
+ ******************************************************************************/
+
+
+/*******************************************************************************
+ * ENET RELATED
+ ******************************************************************************/
+static enet_handle_t ENET_handle;
+
+//Enet PHY and MDIO interface handler
+static mdio_handle_t MDIO_handle = { .ops = &MDIO_OPS };
+static phy_handle_t PHY_handle   = { .phyAddr = PHY_ADDRESS, .mdioHandle = &MDIO_handle, .ops = &PHY_OPS };
+
+//Buffer descriptors array.
+//Buffer descriptors should be in non-cacheable region and should be align to "ENET_BUFF_ALIGNMENT".
+AT_NONCACHEABLE_SECTION_ALIGN( static enet_rx_bd_struct_t RX_buff_des[ENET_RXBD_NUM], ENET_BUFF_ALIGNMENT );
+AT_NONCACHEABLE_SECTION_ALIGN( static enet_tx_bd_struct_t TX_buff_des[ENET_TXBD_NUM], ENET_BUFF_ALIGNMENT );
+
+//Data buffers.
+/*The data buffers can be in cacheable region or in non-cacheable region.
+ * If use cacheable region, the alignment size should be the maximum size of "CACHE LINE SIZE" and "ENET_BUFF_ALIGNMENT"
+ * If use non-cache region, the alignment size is the "ENET_BUFF_ALIGNMENT".
+ */
+SDK_ALIGN( static uint8_t RX_data_buff[ENET_RXBD_NUM][SDK_SIZEALIGN( ENET_RXBUFF_SIZE, APP_ENET_BUFF_ALIGNMENT )], APP_ENET_BUFF_ALIGNMENT );
+SDK_ALIGN( static uint8_t TX_data_buff[ENET_TXBD_NUM][SDK_SIZEALIGN( ENET_TXBUFF_SIZE, APP_ENET_BUFF_ALIGNMENT )], APP_ENET_BUFF_ALIGNMENT );
+
+static uint8_t Transmit_frame[ENET_DATA_LENGTH + 14]; //Frame to transmit.
+static uint8_t Device_MAC[6] = MAC_ADDRESS;
+static uint8_t Dest_MAC[6] = DEST_MAC_ADDRESS;
+
+/*******************************************************************************
+ * API functions
+ ******************************************************************************/
+/**
+ * @brief This function builds the Ethernet frame to transmit.
+ * @note It also encrypts the data payload with AES 128.
+ * 
+ * @note First 14 bytes for MAC HEADER.
+ * @note Data payload is a counter from 0 to 255.
+ * 
+*/
+static void ENET_Encrypted_Build_Tx_Frame( void )
+{
+    uint32_t count  = 0;
+    uint32_t length = ENET_DATA_LENGTH - 14;
+
+    //Building MAC HEADER.
+    for ( count = 0; count < 6; count++ )  //Destination MAC.
+    {
+        Transmit_frame[count] = 0xFF;
+    }
+
+    memcpy( &Transmit_frame[6], Device_MAC, 6 );   //Source MAC.
+
+    //Data payload length.
+    Transmit_frame[12] = ( length >> 8 ) & 0xFF;
+    Transmit_frame[13] = length & 0xFF;
+
+    for ( count = 0; count < length; count++ )
+    {
+        Transmit_frame[count + 14] = count % 0xFF;
+    }
+}
+
+/**
+ * @brief This function initializes the ENET_Encrypted library.
+ * @note AES and ENET library are initialized, as well as the initial link with other device.
+ * 
+ * @return result, result of operation.
+ */
+bool ENET_Encrypted_Init( void )
+{
+    //AES local data.
+
+    //ENET local data.
+    bool result = E_OK;
+    enet_config_t ENET_config;
+    phy_config_t PHY_config = { 0 };
+    bool autonego = false;
+    bool link = false;
+    phy_speed_t speed;
+    phy_duplex_t duplex;
+    status_t status;
+    enet_data_error_stats_t eErrStatic;
+    volatile uint32_t count = 0;
+
+    //ENET initial configuration.
+    //Buffer configuration.
+    enet_buffer_config_t Buff_config[] = { {
+        ENET_RXBD_NUM,
+        ENET_TXBD_NUM,
+        SDK_SIZEALIGN( ENET_RXBUFF_SIZE, APP_ENET_BUFF_ALIGNMENT ),
+        SDK_SIZEALIGN( ENET_TXBUFF_SIZE, APP_ENET_BUFF_ALIGNMENT ),
+        RX_buff_des,
+        TX_buff_des,
+        &RX_data_buff[0][0],
+        &TX_data_buff[0][0],
+        true,
+        true,
+        NULL,
+    } };
+
+    /* Get default configuration for MII
+     * config.miiMode = kENET_RmiiMode;
+     * config.miiSpeed = kENET_MiiSpeed100M;
+     * config.miiDuplex = kENET_MiiFullDuplex;
+     * config.rxMaxFrameLen = ENET_FRAME_MAX_FRAMELEN;
+     */
+    ENET_GetDefaultConfig( &ENET_config );
+
+    //The MIIMode should be set according to the different PHY interfaces.
+    #ifdef EXAMPLE_PHY_INTERFACE_RGMII
+        ENET_config.miiMode = kENET_RgmiiMode;
+    #else
+        ENET_config.miiMode = kENET_RmiiMode;
+    #endif
+
+    //PHY configuration.
+    PHY_config.phyAddr = PHY_ADDRESS;
+    PHY_config.autoNeg = true;
+
+    //MDI configuration.
+    MDIO_handle.resource.base = ENET_BASE_ADD;
+    MDIO_handle.resource.csrClock_Hz = ENET_CLK_FREQ;
+
+    //Initialize PHY and wait auto-negotiation over.
+    PRINTF( "Wait for PHY init...\r\n" );
+
+    do
+    {  
+        status = PHY_Init( &PHY_handle, &PHY_config );    //Initialize PHY.
+
+        if ( status == kStatus_Success )
+        {
+            PRINTF( "Wait for PHY link up...\r\n" );
+
+            //Wait for auto-negotiation success and link up.
+            count = PHY_AUTONEGO_TIMEOUT_COUNT;
+            do
+            {
+                PHY_GetAutoNegotiationStatus( &PHY_handle, &autonego );
+                PHY_GetLinkStatus( &PHY_handle, &link );
+
+                if ( autonego && link ) //auto-negotiation over.
+                {
+                    break;
+                }
+
+            } while ( --count );
+
+            if ( !autonego )
+            {
+                PRINTF ("PHY Auto-negotiation failed. Please check the cable connection and link partner setting.\r\n" );
+            }
+        }
+    } while ( !( link && autonego ) );
+
+    #if PHY_STABILITY_DELAY_US
+        //Wait a moment for PHY status to be stable.
+        SDK_DelayAtLeastUs( PHY_STABILITY_DELAY_US, SDK_DEVICE_MAXIMUM_CPU_CLOCK_FREQUENCY );
+    #endif
+
+    //Get the actual PHY link speed.
+    PHY_GetLinkSpeedDuplex( &PHY_handle, &speed, &duplex );
+
+    //Change the MII speed and duplex for actual link status.
+    ENET_config.miiSpeed  = ( enet_mii_speed_t )speed;
+    ENET_config.miiDuplex = ( enet_mii_duplex_t )duplex;
+
+    ENET_Init( ENET_BASE_ADD, &ENET_handle, &ENET_config, Buff_config, Device_MAC, ENET_CLK_FREQ );
+    ENET_ActiveRead( ENET_BASE_ADD );
+
+    return result;
+}
+
+/**
+ * @brief This function builds and sends an Ethernet frame with encrypted data payload.
+ * 
+ * @param Tx_data Pointer to transmit data payload.
+ * @param Data_length Length in bytes of transmit data payload.
+ * @return result, result of operation.
+ */
+bool ENET_Encrypted_Send( uint8_t *Tx_data, uint16_t Data_length )
+{
+    bool result = NOT_OK;
+    bool link = false;
+
+    //Checking if link is up
+    if ( PHY_GetLinkStatus( &PHY_handle, &link ) == kStatus_Success )
+    {
+        if ( link )
+        {
+            //Building encrypted ethernet frame.
+            ENET_Encrypted_Build_Tx_Frame();
+
+            //Transmitting frame.
+            if ( ENET_SendFrame( ENET_BASE_ADD, &ENET_handle, Transmit_frame, ENET_DATA_LENGTH, 0, false, NULL ) == kStatus_Success )
+            {
+                PRINTF( "Frame transmitted!\r\n" );
+                result = E_OK;
+            }
+
+            else
+            {
+                PRINTF( " \r\nTransmit frame failed!\r\n" );
+            }
+        }
+     }
+
+    return result;
+}
+
+/**
+ * @brief This function receives an Ethernet frame with encrypted data payload.
+ * @note It also decrypts the data payload with AES 128.
+ * 
+ * @param Rx_data Pointer to buffer to store the received decrypted data payload.
+ * @param Data_length Pointer to data to store the received decrypted data payload length.
+ * @return result, result of operation. 
+ */
+bool ENET_Encrypted_Receive( uint8_t *Rx_data, uint16_t *Data_length )
+{
+    bool result = NOT_OK;
+    bool link = false;
+    uint16_t length = 0;    //Received frame length.
+
+    //Checking if link is up
+    if ( PHY_GetLinkStatus( &PHY_handle, &link ) == kStatus_Success )
+    {
+        if ( link )
+        {
+            //Building encrypted ethernet frame.
+            ENET_Encrypted_Build_Tx_Frame();
+
+            //Transmitting frame.
+            if ( ENET_SendFrame( ENET_BASE_ADD, &ENET_handle, Transmit_frame, ENET_DATA_LENGTH, 0, false, NULL ) == kStatus_Success )
+            {
+                PRINTF( "Frame transmitted!\r\n" );
+                result = E_OK;
+            }
+
+            else
+            {
+                PRINTF( " \r\nTransmit frame failed!\r\n" );
+            }
+        }
+     }
+
+    return result;
+}
