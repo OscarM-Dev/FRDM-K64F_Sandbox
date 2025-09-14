@@ -47,8 +47,8 @@
 #define ENET_RXBUFF_SIZE    ENET_FRAME_MAX_FRAMELEN 
 #define ENET_TXBUFF_SIZE    ENET_FRAME_MAX_FRAMELEN
 
-#define ENET_DATA_LENGTH    1000    //Data payload length.
-#define ENET_TRANSMIT_DATA_NUM  20  //Transmit iterations.
+#define ENET_DATA_LENGTH    500    //Data payload length ( for TX and RX payloads ).
+#define ENET_DATA_MINIM_LENGTH  46  //Minimum data payload length for ethernet frame.
 
 #ifndef APP_ENET_BUFF_ALIGNMENT
     #define APP_ENET_BUFF_ALIGNMENT ENET_BUFF_ALIGNMENT
@@ -71,8 +71,9 @@
  ******************************************************************************/
 typedef enum { E_OK, NOT_OK } ENET_Encrypted_status;
 
-static void ENET_Encrypted_Build_Tx_Frame( void );
+static uint8_t* ENET_Encrypted_Build_Tx_Frame( uint8_t *Tx_data, uint16_t Data_length, uint16_t *Frame_Length );
 bool ENET_Encrypted_Init( void );
 bool ENET_Encrypted_Send( uint8_t *Tx_data, uint16_t Data_length );
 bool ENET_Encrypted_Receive( uint8_t *Rx_data, uint16_t *Data_length );
+
 #endif

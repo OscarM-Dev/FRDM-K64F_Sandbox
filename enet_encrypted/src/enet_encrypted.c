@@ -35,7 +35,6 @@ AT_NONCACHEABLE_SECTION_ALIGN( static enet_tx_bd_struct_t TX_buff_des[ENET_TXBD_
 SDK_ALIGN( static uint8_t RX_data_buff[ENET_RXBD_NUM][SDK_SIZEALIGN( ENET_RXBUFF_SIZE, APP_ENET_BUFF_ALIGNMENT )], APP_ENET_BUFF_ALIGNMENT );
 SDK_ALIGN( static uint8_t TX_data_buff[ENET_TXBD_NUM][SDK_SIZEALIGN( ENET_TXBUFF_SIZE, APP_ENET_BUFF_ALIGNMENT )], APP_ENET_BUFF_ALIGNMENT );
 
-static uint8_t Transmit_frame[ENET_DATA_LENGTH + 14]; //Frame to transmit.
 static uint8_t Device_MAC[6] = MAC_ADDRESS;
 static uint8_t Dest_MAC[6] = DEST_MAC_ADDRESS;
 
@@ -46,36 +45,48 @@ static uint8_t Dest_MAC[6] = DEST_MAC_ADDRESS;
  * @brief This function builds the Ethernet frame to transmit.
  * @note It also encrypts the data payload with AES 128.
  * 
- * @note First 14 bytes for MAC HEADER.
- * @note Data payload is a counter from 0 to 255.
+ * @param Tx_data Pointer to transmit data payload.
+ * @param Data_length Transmit data payload length in bytes.
+ * @param Frame_length Pointer to data to store the ethernet frame length in bytes
  * 
-*/
-static void ENET_Encrypted_Build_Tx_Frame( void )
-{
-    uint32_t count  = 0;
-    uint32_t length = ENET_DATA_LENGTH - 14;
+ * @return Pointer to buffer with encrypted ethernet frame.
+ */
+static uint8_t* ENET_Encrypted_Build_Tx_Frame( uint8_t *Tx_data, uint16_t Data_length, uint16_t *Frame_Length )
+{   
+    static uint8_t Transmit_frame[ENET_DATA_LENGTH + 14]; //Frame to transmit.
+    uint8_t *Encrypted_frame = NULL;
+    uint8_t Padding_bytes = 0; //Padding bytes to add if necessary.
+    uint16_t length = Data_length;
+
+    //Cleaning buffer.
+    memset( Transmit_frame, 0, sizeof( Transmit_frame ) );
 
     //Building MAC HEADER.
-    for ( count = 0; count < 6; count++ )  //Destination MAC.
-    {
-        Transmit_frame[count] = 0xFF;
-    }
-
-    memcpy( &Transmit_frame[6], Device_MAC, 6 );   //Source MAC.
+    memcpy( Transmit_frame, Dest_MAC, 6 );  //Destination MAC.
+    memcpy( &Transmit_frame[6], Device_MAC, 6 );    //Source MAC.
 
     //Data payload length.
+    if ( length < ENET_DATA_MINIM_LENGTH )
+    {   //Padding.
+        Padding_bytes = ENET_DATA_MINIM_LENGTH - length;
+        length += Padding_bytes;
+    }
+
     Transmit_frame[12] = ( length >> 8 ) & 0xFF;
     Transmit_frame[13] = length & 0xFF;
 
-    for ( count = 0; count < length; count++ )
-    {
-        Transmit_frame[count + 14] = count % 0xFF;
-    }
+    //Data payload.
+    //To do, encrypt data with AES 128.
+
+    memcpy( &Transmit_frame[14], Tx_data, Data_length );
+    *Frame_Length = length + 14;
+
+    return Transmit_frame;
 }
 
 /**
  * @brief This function initializes the ENET_Encrypted library.
- * @note AES and ENET library are initialized, as well as the initial link with other device.
+ * @note AES and ENET library are initialized, as well as the initial link with the other device.
  * 
  * @return result, result of operation.
  */
@@ -195,6 +206,8 @@ bool ENET_Encrypted_Send( uint8_t *Tx_data, uint16_t Data_length )
 {
     bool result = NOT_OK;
     bool link = false;
+    uint8_t *Tx_frame = NULL;
+    uint16_t Frame_length = 0;
 
     //Checking if link is up
     if ( PHY_GetLinkStatus( &PHY_handle, &link ) == kStatus_Success )
@@ -202,10 +215,10 @@ bool ENET_Encrypted_Send( uint8_t *Tx_data, uint16_t Data_length )
         if ( link )
         {
             //Building encrypted ethernet frame.
-            ENET_Encrypted_Build_Tx_Frame();
+            Tx_frame = ENET_Encrypted_Build_Tx_Frame( Tx_data, Data_length, &Frame_length );
 
             //Transmitting frame.
-            if ( ENET_SendFrame( ENET_BASE_ADD, &ENET_handle, Transmit_frame, ENET_DATA_LENGTH, 0, false, NULL ) == kStatus_Success )
+            if ( ENET_SendFrame( ENET_BASE_ADD, &ENET_handle, Tx_frame, Frame_length, 0, false, NULL ) == kStatus_Success )
             {
                 PRINTF( "Frame transmitted!\r\n" );
                 result = E_OK;
@@ -237,11 +250,11 @@ bool ENET_Encrypted_Receive( uint8_t *Rx_data, uint16_t *Data_length )
 
     //Checking if link is up
     if ( PHY_GetLinkStatus( &PHY_handle, &link ) == kStatus_Success )
-    {
+    {/*
         if ( link )
         {
             //Building encrypted ethernet frame.
-            ENET_Encrypted_Build_Tx_Frame();
+            //ENET_Encrypted_Build_Tx_Frame();
 
             //Transmitting frame.
             if ( ENET_SendFrame( ENET_BASE_ADD, &ENET_handle, Transmit_frame, ENET_DATA_LENGTH, 0, false, NULL ) == kStatus_Success )
@@ -254,7 +267,7 @@ bool ENET_Encrypted_Receive( uint8_t *Rx_data, uint16_t *Data_length )
             {
                 PRINTF( " \r\nTransmit frame failed!\r\n" );
             }
-        }
+        }*/
      }
 
     return result;
