@@ -72,6 +72,7 @@
 typedef enum { E_OK, NOT_OK } ENET_Encrypted_status;
 
 static uint8_t* ENET_Encrypted_Build_Tx_Frame( uint8_t *Tx_data, uint16_t Data_length, uint16_t *Frame_Length );
+static bool ENET_Encrypted_Get_Rx_Data( uint8_t *Rx_frame, uint16_t Frame_length, uint8_t *Rx_data, uint16_t *Data_length );
 bool ENET_Encrypted_Init( void );
 bool ENET_Encrypted_Send( uint8_t *Tx_data, uint16_t Data_length );
 bool ENET_Encrypted_Receive( uint8_t *Rx_data, uint16_t *Data_length );

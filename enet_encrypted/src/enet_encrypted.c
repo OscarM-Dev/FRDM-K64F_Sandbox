@@ -85,6 +85,51 @@ static uint8_t* ENET_Encrypted_Build_Tx_Frame( uint8_t *Tx_data, uint16_t Data_l
 }
 
 /**
+ * @brief This function gets the data payload of the received Ethernet frame with encrypted payload.
+ * @note It also decrypts the data payload with AES 128.
+ * 
+ * @param Rx_frame Pointer to received ethernet frame ( buffer ).
+ * @param Frame_length Length in bytes of received frame.
+ * @param Rx_data Pointer to buffer to store the decrypted data payload.
+ * @param Data_length Pointer to data to store the data payload length in bytes.
+ * 
+ * @return result, result of operation. 
+ */
+static bool ENET_Encrypted_Get_Rx_Data( uint8_t *Rx_frame, uint16_t Frame_length, uint8_t *Rx_data, uint16_t *Data_length )
+{
+    bool result = E_OK;
+    uint16_t length = Frame_length - 14;    //Data payload length without padding.
+
+    PRINTF( "Frame received. Length of %d bytes.\t", Frame_length );
+
+    //MAC header.
+    PRINTF( "Dest Address %02x:%02x:%02x:%02x:%02x:%02x Src Address %02x:%02x:%02x:%02x:%02x:%02x \r\n",
+            Rx_frame[0], Rx_frame[1], Rx_frame[2], Rx_frame[3], Rx_frame[4], Rx_frame[5], Rx_frame[6], Rx_frame[7], Rx_frame[8], Rx_frame[9],
+            Rx_frame[10], Rx_frame[11] );
+
+    //Data payload.
+    //To do decrypt data payload with AES 128.
+
+    //Analizing if there is padding in the data payload.
+    if ( length == ENET_DATA_MINIM_LENGTH )
+    {   //Padding could be present.
+        for ( uint16_t i = 0; i < length; i++ )
+        {   //Detecting exactly where the padding starts, note this only works for strings.
+            if ( Rx_frame[i + 14] == '\0' )
+            {
+                length = i;    //Real data payload length ignoring padding.
+                break;
+            }
+        }
+    }
+
+    memcpy( Rx_data, &Rx_frame[14], length );
+    *Data_length = length;
+
+    return result;
+}   
+
+/**
  * @brief This function initializes the ENET_Encrypted library.
  * @note AES and ENET library are initialized, as well as the initial link with the other device.
  * 
@@ -246,29 +291,34 @@ bool ENET_Encrypted_Receive( uint8_t *Rx_data, uint16_t *Data_length )
 {
     bool result = NOT_OK;
     bool link = false;
-    uint16_t length = 0;    //Received frame length.
+    uint32_t length = 0;    //Received frame length.
+    uint8_t *Received_frame = NULL;
 
     //Checking if link is up
     if ( PHY_GetLinkStatus( &PHY_handle, &link ) == kStatus_Success )
-    {/*
+    {
         if ( link )
         {
-            //Building encrypted ethernet frame.
-            //ENET_Encrypted_Build_Tx_Frame();
+            //Checking if an ethernet frame was received.
+            ENET_GetRxFrameSize( &ENET_handle, &length, 0 );
 
-            //Transmitting frame.
-            if ( ENET_SendFrame( ENET_BASE_ADD, &ENET_handle, Transmit_frame, ENET_DATA_LENGTH, 0, false, NULL ) == kStatus_Success )
-            {
-                PRINTF( "Frame transmitted!\r\n" );
-                result = E_OK;
-            }
+            if ( length != 0 )
+            {   //Frame received.
+                Received_frame = ( uint8_t *) malloc( length );
 
-            else
-            {
-                PRINTF( " \r\nTransmit frame failed!\r\n" );
+                ENET_ReadFrame( ENET_BASE_ADD, &ENET_handle, Received_frame, length, 0, NULL ); //Storing received frame in buffer.
+                
+                //Validating dest MAC address.
+                if ( memcmp( Device_MAC, Received_frame, 6 ) == 0 )   
+                {   //Received a valid frame
+                    ENET_Encrypted_Get_Rx_Data( Received_frame, length, Rx_data, Data_length ); //Obtaining decrypted data payload.
+                    result = E_OK;
+                }
+
+                free( Received_frame );
             }
-        }*/
-     }
+        }
+    }
 
     return result;
 }
