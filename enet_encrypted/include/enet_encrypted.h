@@ -47,7 +47,6 @@
 #define ENET_RXBUFF_SIZE    ENET_FRAME_MAX_FRAMELEN 
 #define ENET_TXBUFF_SIZE    ENET_FRAME_MAX_FRAMELEN
 
-#define ENET_DATA_LENGTH    500    //Data payload length ( for TX and RX payloads ).
 #define ENET_DATA_MINIM_LENGTH  46  //Minimum data payload length for ethernet frame.
 
 #ifndef APP_ENET_BUFF_ALIGNMENT
@@ -76,5 +75,6 @@ static bool ENET_Encrypted_Get_Rx_Data( uint8_t *Rx_frame, uint16_t Frame_length
 bool ENET_Encrypted_Init( void );
 bool ENET_Encrypted_Send( uint8_t *Tx_data, uint16_t Data_length );
 bool ENET_Encrypted_Receive( uint8_t *Rx_data, uint16_t *Data_length );
+void ENET_Encrypted_Test_Session( void );
 
 #endif

@@ -322,3 +322,81 @@ bool ENET_Encrypted_Receive( uint8_t *Rx_data, uint16_t *Data_length )
 
     return result;
 }
+
+/**
+ * @brief This function implements the comunication session with the python script in which a sequence of strings are transmitted and received.
+ * 
+ */
+void ENET_Encrypted_Test_Session( void )
+{   
+    //Transmit strings.
+    static const uint8_t *Strings_tx[16] = 
+    {
+        "No todo lo que es oro reluce...",
+        "Aún en la oscuridad...",
+        "¿Qué es la vida?",
+        "No temas a la oscuridad...",
+        "Hasta los más pequeños...",
+        "No digas que el sol se ha puesto...",
+        "El coraje se encuentra...",
+        "No todos los tesoros...",
+        "Es peligroso...",
+        "Un mago nunca llega tarde...",
+        "Aún hay esperanza...",
+        "El mundo está cambiando...",
+        "Las raíces profundas...",
+        "No se puede...",
+        "Y sobre todo...",
+        "De las cenizas, un fuego..."
+    };
+
+    //Receive strings.
+    static const uint8_t *Strings_rx[16] =
+    {
+        "...Ni todos los que vagan están perdidos.",
+        "...brilla una luz.",
+        "Nada más que un breve caminar a la luz del sol.",
+        "...pues en ella se esconden las estrellas.",
+        "...pueden cambiar el curso del futuro.",
+        "...si aún te queda la luna.",
+        "...en los lugares más inesperados.",
+        "...son oro y plata.",
+        "...cruzar tu puerta.",
+        "...ni pronto, Frodo Bolsón. Llega precisamente cuando se lo propone.",
+        "...mientras la Compañía permanezca fiel.",
+        "...Siento que algo se avecina.",
+        "...no alcanzan las heladas.",
+        "...pasar.",
+        "...cuidado con el Anillo.",
+        "...se despertará."
+    };
+
+    static uint8_t Rx_data[ENET_DATA_LENGTH];
+    uint8_t i = 0;
+    uint16_t Rx_data_length;
+
+    while ( true )
+    {
+        for ( i = 0; i < 16; i++ )
+        {
+            //Transmiting string.
+            ENET_Encrypted_Send( ( uint8_t* ) Strings_tx[i],  strlen( ( const char* ) Strings_tx[i] ) + 1 );
+
+            //Receiving answer.
+            memset( Rx_data, 0, sizeof( Rx_data ) );    //Cleaning buffer.
+            while ( ENET_Encrypted_Receive( Rx_data, &Rx_data_length ) != E_OK );   //Waiting for answer.
+
+            if ( memcmp( Rx_data, Strings_rx[i], Rx_data_length ) == 0 )
+            {   //Received expected answer.
+                PRINTF( "Data received of %d bytes: %s\r\n", Rx_data_length, Rx_data );
+            }
+
+            else
+            {
+                PRINTF( "Unexpected data received\r\n");
+            }
+
+            SDK_DelayAtLeastUs( ENET_TX_DELAY_US, ENET_CLK_FREQ );
+        }
+    }
+}
