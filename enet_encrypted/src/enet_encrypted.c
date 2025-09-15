@@ -11,7 +11,9 @@
 /*******************************************************************************
  * AES RELATED
  ******************************************************************************/
-
+static struct AES_ctx Ctx;  //AES 128 control structure.
+static uint8_t AES_key[16] = { AES_128_CBC_KEY };
+static uint8_t AES_iv[16] = { AES_128_CBC_IV };
 
 /*******************************************************************************
  * ENET RELATED
@@ -90,7 +92,7 @@ static uint8_t* ENET_Encrypted_Build_Tx_Frame( uint8_t *Tx_data, uint16_t Data_l
  * 
  * @param Rx_frame Pointer to received ethernet frame ( buffer ).
  * @param Frame_length Length in bytes of received frame.
- * @param Rx_data Pointer to buffer to store the decrypted data payload.
+ * @param Rx_data Pointer to buffer to store the decrypted data payload without padding.
  * @param Data_length Pointer to data to store the data payload length in bytes.
  * 
  * @return result, result of operation. 
@@ -99,6 +101,7 @@ static bool ENET_Encrypted_Get_Rx_Data( uint8_t *Rx_frame, uint16_t Frame_length
 {
     bool result = E_OK;
     uint16_t length = Frame_length - 14;    //Data payload length without padding.
+    uint8_t pad_value = 0;      //Pad value for AES padding.
 
     PRINTF( "Frame received. Length of %d bytes.\t", Frame_length );
 
@@ -108,18 +111,31 @@ static bool ENET_Encrypted_Get_Rx_Data( uint8_t *Rx_frame, uint16_t Frame_length
             Rx_frame[10], Rx_frame[11] );
 
     //Data payload.
-    //To do decrypt data payload with AES 128.
-
-    //Analizing if there is padding in the data payload.
+    //Analizing if there is padding for completing the minimun length in the data payload, ignoring ethernet padding.
     if ( length == ENET_DATA_MINIM_LENGTH )
     {   //Padding could be present.
-        for ( uint16_t i = 0; i < length; i++ )
-        {   //Detecting exactly where the padding starts, note this only works for strings.
-            if ( Rx_frame[i + 14] == '\0' )
-            {
-                length = i;    //Real data payload length ignoring padding.
-                break;
-            }
+        length = 32;    //An estimated real payload length.
+    }
+
+    AES_init_ctx_iv( &Ctx, AES_key, AES_iv );   //Initializing AES control structure.
+    AES_CBC_decrypt_buffer( &Ctx, &Rx_frame[14], length );  //Decrypting data payload.
+
+    //Analizing AES padding, ignoring AES padding.
+    //Obtaining pad value -->0x01 to 0x10 or 1 to 16, last data payload byte.
+    pad_value = Rx_frame[ ( length + 14 ) - 1 ];
+    
+    if ( pad_value == 0 || pad_value > 16 )
+    {   //Incorrect pad_value, usually enters when payload length <= 46
+        length -= 16;
+        pad_value = Rx_frame[ ( length + 14 ) - 1 ];
+    }
+    
+    for ( uint16_t i = 0; i < length; i++ )
+    {   //Detecting exactly where the padding starts.
+        if ( Rx_frame[i + 14] == pad_value )
+        {
+            length = i;    //Real data payload length ignoring padding.
+            break;
         }
     }
 
@@ -131,14 +147,12 @@ static bool ENET_Encrypted_Get_Rx_Data( uint8_t *Rx_frame, uint16_t Frame_length
 
 /**
  * @brief This function initializes the ENET_Encrypted library.
- * @note AES and ENET library are initialized, as well as the initial link with the other device.
+ * @note ENET library is initialized, as well as the initial link with the other device.
  * 
  * @return result, result of operation.
  */
 bool ENET_Encrypted_Init( void )
 {
-    //AES local data.
-
     //ENET local data.
     bool result = E_OK;
     enet_config_t ENET_config;

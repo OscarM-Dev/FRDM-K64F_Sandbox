@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "enet_encrypted_cfg.h"
+#include "aes.h"
 #include "fsl_debug_console.h"
 #include "fsl_enet.h"
 #include "fsl_phy.h"
