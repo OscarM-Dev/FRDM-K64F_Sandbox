@@ -58,7 +58,9 @@ static uint8_t* ENET_Encrypted_Build_Tx_Frame( uint8_t *Tx_data, uint16_t Data_l
     static uint8_t Transmit_frame[ENET_DATA_LENGTH + 14]; //Frame to transmit.
     uint8_t *Encrypted_frame = NULL;
     uint8_t Padding_bytes = 0; //Padding bytes to add if necessary.
-    uint16_t length = Data_length;
+    uint16_t length = Data_length;  //Data payload length, this includes the AES padding but not the Ethernet minimun padding.
+    uint8_t pad_value = 0;
+    uint8_t AES_bytes = 0;
 
     //Cleaning buffer.
     memset( Transmit_frame, 0, sizeof( Transmit_frame ) );
@@ -68,20 +70,38 @@ static uint8_t* ENET_Encrypted_Build_Tx_Frame( uint8_t *Tx_data, uint16_t Data_l
     memcpy( &Transmit_frame[6], Device_MAC, 6 );    //Source MAC.
 
     //Data payload length.
+    //Padding for AES, PKCS#7.
+    //Padding values from 1 to 16.
+    if ( length % 16 != 0 )
+    {   //Add padding for completing n blocks of 16 bytes.
+        AES_bytes = ( ( length / 16 ) + 1 ) * 16;
+        pad_value = AES_bytes - length;
+        memset( &Transmit_frame[ length + 14 ], pad_value, pad_value );
+        length = AES_bytes;
+    }
+
+    else
+    {   //Add padding for indicating we have exactly n blocks of 16 bytes.
+        pad_value = 16;
+        memset( &Transmit_frame[ length + 14 ], pad_value, pad_value );
+        length += 16;
+    }
+
     if ( length < ENET_DATA_MINIM_LENGTH )
-    {   //Padding.
+    {   //Padding for completing the minimum length.
         Padding_bytes = ENET_DATA_MINIM_LENGTH - length;
-        length += Padding_bytes;
     }
 
     Transmit_frame[12] = ( length >> 8 ) & 0xFF;
     Transmit_frame[13] = length & 0xFF;
 
     //Data payload.
-    //To do, encrypt data with AES 128.
-
     memcpy( &Transmit_frame[14], Tx_data, Data_length );
-    *Frame_Length = length + 14;
+
+    AES_init_ctx_iv( &Ctx, AES_key, AES_iv );   //Initializing AES control structure.
+    AES_CBC_encrypt_buffer( &Ctx, &Transmit_frame[14], length );
+
+    *Frame_Length = length + 14 + Padding_bytes;
 
     return Transmit_frame;
 }
