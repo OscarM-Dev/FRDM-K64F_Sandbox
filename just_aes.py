@@ -81,21 +81,25 @@ try:
         print(f"payload: {payload}")
 
         # Decrypt the data
-        #decrypted_data = decrypt(payload[:payload_len], aes_key)
-        #decrypted_data = str(payload, 'utf-8')
-        decrypted_data = payload.decode('utf-8').rstrip('\x00')
+        decrypted_data = decrypt(payload[:payload_len], aes_key)
+        decrypted_data = str(decrypted_data, 'utf-8')
+        decrypted_data = decrypted_data.strip("\x00").strip()  
         print(f"Decrypted data: {decrypted_data}")
 
-        #if decrypted_data in messages_and_replies:
-        reply = messages_and_replies[decrypted_data]
-        #else:  
-           # reply = "No comprendo"
+        if decrypted_data in messages_and_replies:
+            reply = messages_and_replies[decrypted_data]
+        else:  
+            reply = "No comprendo"
         print(f"Reply: {reply}")
         reply_bytes = bytes(reply, 'utf-8')
         print("Reply bytes:")
         pba(reply_bytes)
+        
+        encrypted_data = encrypt(reply_bytes, aes_key)
+        print("Encrypted reply:")
+        pba(encrypted_data)
 
-        send_payload = reply_bytes#encrypted_data #+ calc_crc.to_bytes(4, byteorder='little')
+        send_payload = encrypted_data #+ calc_crc.to_bytes(4, byteorder='little')
         print(f"Send payload len:{len(send_payload)}")
         # Construct an Ethernet packet with Ethertype (Data lenght) 100
         ether = Ether(dst=frdm_eth_mac, src=pc_eth_mac, type=len(send_payload))
