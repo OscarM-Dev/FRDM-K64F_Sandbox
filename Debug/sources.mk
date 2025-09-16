@@ -19,6 +19,7 @@ component/lists \
 component/uart \
 device \
 drivers \
+enet_encrypted/src \
 mdio \
 phy \
 source \

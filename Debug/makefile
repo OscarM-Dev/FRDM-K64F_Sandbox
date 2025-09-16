@@ -13,6 +13,7 @@ RM := rm -rf
 -include source/subdir.mk
 -include phy/subdir.mk
 -include mdio/subdir.mk
+-include enet_encrypted/src/subdir.mk
 -include drivers/subdir.mk
 -include device/subdir.mk
 -include component/uart/subdir.mk
@@ -50,7 +51,7 @@ main-build: frdmk64f_ethernet_practice.axf
 frdmk64f_ethernet_practice.axf: $(OBJS) $(USER_OBJS) makefile $(OPTIONAL_TOOL_DEPS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: MCU Linker'
-	arm-none-eabi-gcc -nostdlib -Xlinker -Map="frdmk64f_ethernet_practice.map" -Xlinker --gc-sections -Xlinker -print-memory-usage -Xlinker --sort-section=alignment -Xlinker --cref -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -T frdmk64f_enet_txrx_transfer_Debug.ld -o "frdmk64f_ethernet_practice.axf" $(OBJS) $(USER_OBJS) $(LIBS)
+	arm-none-eabi-gcc -nostdlib -Xlinker -Map="frdmk64f_ethernet_practice.map" -Xlinker --gc-sections -Xlinker -print-memory-usage -Xlinker --sort-section=alignment -Xlinker --cref -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -T frdmk64f_ethernet_practice_Debug.ld -o "frdmk64f_ethernet_practice.axf" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
