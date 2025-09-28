@@ -12,12 +12,20 @@
 #include "board.h"
 #include "fsl_debug_console.h"
 #include "fsl_gpio.h"
+#include "timers.h"
 
 /*******************************************************************************
  * Macros.
  ******************************************************************************/
 #define RGB_CHANNEL_ENABLED     0
 #define RGB_CHANNEL_DISABLED    1
+#define RGB_RED_BLUE_DISABLED   0x00600000
+#define RGB_GREEN_DISABLED      0x04000000
+#define RGB_TOGGLE_CHANNEL      1 << RGB_LED.RGB_pins_conf[RGB_LED.RGB_color].Pin
+#define RGB_TOGGLE_LEVEL_1_COUNTS   10
+#define RGB_TOGGLE_LEVEL_2_COUNTS   5
+#define RGB_TOGGLE_LEVEL_3_COUNTS   2
+#define RGB_TOGGLE_LEVEL_4_COUNTS   1
 
 /*******************************************************************************
  * Enums.
@@ -51,7 +59,7 @@ typedef enum
 {
     LEVEL_1_1000_MS,
     LEVEL_2_500_MS,
-    LEVEL_3_250_MS,
+    LEVEL_3_200_MS,
     LEVEL_4_100_MS
 } RGB_toggle_levels;
 
@@ -78,6 +86,7 @@ typedef struct
     RGB_config RGB_pins_conf[3];
     RGB_colors RGB_color;
     RGB_toggle_levels RGB_toggle_level;
+    uint8_t RGB_toggle_timer_counts;
 } RGB_control;
 
 /*******************************************************************************
@@ -86,6 +95,7 @@ typedef struct
 bool RGB_Init( void );
 bool RGB_Set_Color_Cb( RGB_color_update Color_update );
 bool RGB_Set_Toggle_Delay_Cb( RGB_toggle_levels level );
+void vRGB_Timer_Cb( TimerHandle_t xTimer );
 
 /*******************************************************************************
  * Buttons related functions.

@@ -9,6 +9,7 @@
 /*******************************************************************************
  * Static global data.
  ******************************************************************************/
+//RGB control structure.
 static RGB_control RGB_LED = 
 {
     .RGB_pins_conf = 
@@ -45,14 +46,18 @@ static RGB_control RGB_LED =
         }        
     },
     .RGB_color = RED,
-    .RGB_toggle_level = LEVEL_1_1000_MS
+    .RGB_toggle_level = LEVEL_1_1000_MS,
+    .RGB_toggle_timer_counts = RGB_TOGGLE_LEVEL_1_COUNTS
 };
+
+//RGB timer handle
+static TimerHandle_t RGB_timer;
 
 /*******************************************************************************
  * RGB related functions.
  ******************************************************************************/
 /**
- * @brief This function initialices the RGB pins.
+ * @brief This function initialices the RGB pins and the RGB timer.
  * @note The RGB pins have negative logic. 
  * 
  * @retval result of operation.
@@ -65,6 +70,9 @@ bool RGB_Init( void )
     {
         GPIO_PinInit( RGB_LED.RGB_pins_conf[i].Gpio, RGB_LED.RGB_pins_conf[i].Pin, &RGB_LED.RGB_pins_conf[i].Pin_config );
     }
+
+    RGB_timer = xTimerCreate( "RGB Timer", pdMS_TO_TICKS( 100 ), true, NULL, vRGB_Timer_Cb );
+    xTimerStart( RGB_timer, pdMS_TO_TICKS( 10 ) );
 
     return result;
 }
@@ -123,12 +131,62 @@ bool RGB_Set_Toggle_Delay_Cb( RGB_toggle_levels level )
     if ( level >= LEVEL_1_1000_MS && level <= LEVEL_4_100_MS )
     {
         RGB_LED.RGB_toggle_level = level;
+
+        //Calculating timer counts for level
+        switch ( level )
+        {
+            case LEVEL_1_1000_MS:
+                RGB_LED.RGB_toggle_timer_counts = RGB_TOGGLE_LEVEL_1_COUNTS;
+            break;
+
+            case LEVEL_2_500_MS:
+                RGB_LED.RGB_toggle_timer_counts = RGB_TOGGLE_LEVEL_2_COUNTS;
+            break;
+
+            case LEVEL_3_200_MS:
+                RGB_LED.RGB_toggle_timer_counts = RGB_TOGGLE_LEVEL_3_COUNTS;
+            break;
+
+            case LEVEL_4_100_MS:
+                RGB_LED.RGB_toggle_timer_counts = RGB_TOGGLE_LEVEL_4_COUNTS;
+            break;
+        }
+
         result = true;
     }
 
     return result;
 }
 
+/**
+ * @brief This function is the RGB timer callback, which is called every 100ms.
+ * 
+ * @param xTimer RGB timer control structure.
+ */
+void vRGB_Timer_Cb( TimerHandle_t xTimer )
+{
+    static uint8_t count = 0;
+    static bool enabled = true;
+
+    count++;
+
+    //Set corresponding RGB color, onlty if LED was previously active.
+    if ( enabled )
+    {
+        GPIO_PortSet( RGB_LED.RGB_pins_conf[RED].Gpio, RGB_RED_BLUE_DISABLED );
+        GPIO_PortSet( RGB_LED.RGB_pins_conf[GREEN].Gpio, RGB_GREEN_DISABLED );
+        GPIO_PinWrite( RGB_LED.RGB_pins_conf[RGB_LED.RGB_color].Gpio, RGB_LED.RGB_pins_conf[RGB_LED.RGB_color].Pin, RGB_CHANNEL_ENABLED );
+    }
+
+    //Check if toggle level was accomplished.
+    if ( count >= RGB_LED.RGB_toggle_timer_counts )
+    {
+        GPIO_PortToggle( RGB_LED.RGB_pins_conf[RGB_LED.RGB_color].Gpio, RGB_TOGGLE_CHANNEL );
+        count = 0;
+        enabled = !enabled;
+    }
+
+}
 /*******************************************************************************
  * Buttons related functions.
  ******************************************************************************/
