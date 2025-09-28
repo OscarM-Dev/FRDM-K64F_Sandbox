@@ -4,3 +4,5 @@
 *.axf
 *.ld
 *.map
+*.su
+*.jlink
