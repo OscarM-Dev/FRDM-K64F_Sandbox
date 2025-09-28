@@ -44,7 +44,8 @@ static RGB_control RGB_LED =
             }
         }        
     },
-    .RGB_color = RED
+    .RGB_color = RED,
+    .RGB_toggle_level = LEVEL_1_1000_MS
 };
 
 /*******************************************************************************
@@ -109,6 +110,24 @@ bool RGB_Set_Color_Cb( RGB_color_update Color_update )
     return result;
 }
 
+/**
+ * @brief This function updates the actual RGB toggle delay level.
+ * 
+ * @param level Desired toggle level.
+ * @retval result of operation.
+ */
+bool RGB_Set_Toggle_Delay_Cb( RGB_toggle_levels level )
+{
+    bool result = false;
+
+    if ( level >= LEVEL_1_1000_MS && level <= LEVEL_4_100_MS )
+    {
+        RGB_LED.RGB_toggle_level = level;
+        result = true;
+    }
+
+    return result;
+}
 
 /*******************************************************************************
  * Buttons related functions.

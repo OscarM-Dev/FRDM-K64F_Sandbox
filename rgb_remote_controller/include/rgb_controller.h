@@ -22,19 +22,38 @@
 /*******************************************************************************
  * Enums.
  ******************************************************************************/
+/**
+ * @brief RGB colors.
+ * 
+ */
 typedef enum
 {
     RED,
     GREEN,
-    BLUE,
-    F
+    BLUE
 } RGB_colors;
 
+/**
+ * @brief RGB updates.
+ * 
+ */
 typedef enum
 {
     COLOR_UP,
     COLOR_DOWN
 } RGB_color_update;
+
+/**
+ * @brief RGB toggle levels.
+ * 
+ */
+typedef enum
+{
+    LEVEL_1_1000_MS,
+    LEVEL_2_500_MS,
+    LEVEL_3_250_MS,
+    LEVEL_4_100_MS
+} RGB_toggle_levels;
 
 /*******************************************************************************
  * Structs.
@@ -58,6 +77,7 @@ typedef struct
 {
     RGB_config RGB_pins_conf[3];
     RGB_colors RGB_color;
+    RGB_toggle_levels RGB_toggle_level;
 } RGB_control;
 
 /*******************************************************************************
@@ -65,7 +85,7 @@ typedef struct
  ******************************************************************************/
 bool RGB_Init( void );
 bool RGB_Set_Color_Cb( RGB_color_update Color_update );
-bool RGB_Set_Toggle_Delay_Cb( void );
+bool RGB_Set_Toggle_Delay_Cb( RGB_toggle_levels level );
 
 /*******************************************************************************
  * Buttons related functions.
