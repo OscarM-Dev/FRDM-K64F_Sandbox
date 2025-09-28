@@ -67,3 +67,54 @@ bool RGB_Init( void )
 
     return result;
 }
+
+/**
+ * @brief This function updates the actual RGB color.
+ * 
+ * @param Color_update Indicates an increment or decremnet in the RGB color.
+ * @retval result of operation.
+ */
+bool RGB_Set_Color_Cb( RGB_color_update Color_update )
+{
+    bool result = false;
+
+    switch ( Color_update )
+    {
+        case COLOR_UP:
+            RGB_LED.RGB_color++;
+            
+            if ( RGB_LED.RGB_color > BLUE )
+            {
+                RGB_LED.RGB_color = RED;
+            }
+            
+            result = true;
+        break;
+
+        case COLOR_DOWN:
+            RGB_LED.RGB_color--;
+
+            if ( RGB_LED.RGB_color > BLUE )
+            {
+                RGB_LED.RGB_color = BLUE;
+            }
+
+            result = true;
+        break;
+
+        default:
+        break;
+    }
+
+    return result;
+}
+
+
+/*******************************************************************************
+ * Buttons related functions.
+ ******************************************************************************/
+
+
+/*******************************************************************************
+ * Potentiometer related functions.
+ ******************************************************************************/

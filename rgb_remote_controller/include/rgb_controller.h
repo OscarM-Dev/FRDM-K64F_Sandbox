@@ -30,6 +30,12 @@ typedef enum
     F
 } RGB_colors;
 
+typedef enum
+{
+    COLOR_UP,
+    COLOR_DOWN
+} RGB_color_update;
+
 /*******************************************************************************
  * Structs.
  ******************************************************************************/
@@ -58,7 +64,7 @@ typedef struct
  * RGB related functions.
  ******************************************************************************/
 bool RGB_Init( void );
-bool RGB_Set_Color_Cb( void );
+bool RGB_Set_Color_Cb( RGB_color_update Color_update );
 bool RGB_Set_Toggle_Delay_Cb( void );
 
 /*******************************************************************************
