@@ -11,6 +11,7 @@ RM := rm -rf
 -include utilities/subdir.mk
 -include startup/subdir.mk
 -include source/subdir.mk
+-include rgb_remote_controller/src/subdir.mk
 -include phy/subdir.mk
 -include mdio/subdir.mk
 -include lwip/src/netif/ppp/subdir.mk

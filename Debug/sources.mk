@@ -33,6 +33,7 @@ lwip/src/netif \
 lwip/src/netif/ppp \
 mdio \
 phy \
+rgb_remote_controller/src \
 source \
 startup \
 utilities \
