@@ -1,0 +1,6 @@
+#Ignore compilation and temporal files.
+*.o
+*.d
+*.axf
+*.ld
+*.map
