@@ -142,6 +142,12 @@ static ip_addr_t mqtt_addr;
 /*! @brief Indicates connection to MQTT broker. */
 static volatile bool connected = false;
 
+//RGB status variables.
+static RGB_colors actual_color = 0;
+static RGB_toggle_levels actual_toggle_level = 0;
+
+extern TimerHandle_t Input_timer;
+
 /*******************************************************************************
  * Code
  ******************************************************************************/
@@ -150,8 +156,11 @@ static volatile bool connected = false;
  * @brief Called when subscription request finishes.
  */
 static void mqtt_topic_subscribed_cb(void *arg, err_t err)
-{
+{   
+    static uint8_t count = 0;
     const char *topic = (const char *)arg;
+
+    count++;
 
     if (err == ERR_OK)
     {
@@ -160,6 +169,12 @@ static void mqtt_topic_subscribed_cb(void *arg, err_t err)
     else
     {
         PRINTF("Failed to subscribe to the topic \"%s\": %d.\r\n", topic, err);
+    }
+
+    if ( count >= 3 )
+    {   //Subscribed to all topics
+        xTimerStart( Input_timer, pdMS_TO_TICKS( 10 ) ); //Start input timer only when all subscriptions were made.
+        count = 0;
     }
 }
 
@@ -358,14 +373,85 @@ static void mqtt_message_published_cb(void *arg, err_t err)
  */
 static void publish_message(void *ctx)
 {
-    static const char *topic   = "lwip_topic/100";
-    static const char *message = "message from board";
+    #ifdef BOARD_1
+        static const char *Pub_topics[] = { "MQTT/K64F/Board1/STATUS", "MQTT/K64F/Board1/BTN1", "MQTT/K64F/Board1/BTN2", "MQTT/K64F/Board1/POT" };
+    #else
+        static const char *Pub_topics[] = { "MQTT/K64F/Board2/STATUS", "MQTT/K64F/Board2/BTN1", "MQTT/K64F/Board2/BTN2", "MQTT/K64F/Board2/POT" };
+    #endif
+
+    static const char *Pub_msgs[] = { "Red", "Green", "Blue", "Up", "Down", "Level 1", "Level 2", "Level 3", "Level 4" };
+
+    uint8_t QoS[] = { 1, 1, 1, 1 };
+    uint8_t actual_color_message_ID = 0;
+    uint8_t actual_level_message_ID = 0;
+    uint8_t i = 0, j = 0;
 
     LWIP_UNUSED_ARG(ctx);
 
-    PRINTF("Going to publish to the topic \"%s\"...\r\n", topic);
+    PRINTF( "Going to publish to the topic \"%s\"...\r\n", Pub_topics[TOPIC_STATUS] );
 
-    mqtt_publish(mqtt_client, topic, message, strlen(message), 1, 0, mqtt_message_published_cb, (void *)topic);
+    //Determing actual color message ID
+    switch( actual_color )
+    {
+        case RED:
+            actual_color_message_ID = MESSAGE_1_STATUS_COLOR_RED;
+        break;
+
+        case GREEN:
+            actual_color_message_ID = MESSAGE_2_STATUS_COLOR_GREEN;
+        break;
+
+        case BLUE:
+            actual_color_message_ID = MESSAGE_3_STATUS_COLOR_BLUE;
+        break;
+    }
+
+    //Determing actual toggle level message ID
+    switch( actual_toggle_level )
+    {
+        case LEVEL_1_1000_MS:
+            actual_level_message_ID = MESSAGE_6_POT_LEVEL_1;
+        break;
+
+        case LEVEL_2_500_MS:
+            actual_level_message_ID = MESSAGE_7_POT_LEVEL_2;
+        break;
+
+        case LEVEL_3_200_MS:
+            actual_level_message_ID = MESSAGE_8_POT_LEVEL_3;
+        break;
+
+        case LEVEL_4_100_MS:
+            actual_level_message_ID = MESSAGE_9_POT_LEVEL_4;
+        break;
+    }
+
+    //Publish status msgs.
+    mqtt_publish( mqtt_client, Pub_topics[TOPIC_STATUS], Pub_msgs[actual_color_message_ID], strlen( Pub_msgs[actual_color_message_ID] ), 
+    QoS[TOPIC_STATUS], false, mqtt_message_published_cb, ( void *) Pub_topics[TOPIC_STATUS] );
+
+    mqtt_publish( mqtt_client, Pub_topics[TOPIC_STATUS], Pub_msgs[actual_level_message_ID], strlen( Pub_msgs[actual_level_message_ID] ), 
+    QoS[TOPIC_STATUS], false, mqtt_message_published_cb, ( void *) Pub_topics[TOPIC_STATUS] );
+}
+
+/**
+ * @brief This function is the input timer callback, here we poll the user input and according to it a message is published.
+ * 
+ * @param xTimer Input timer control structure. 
+ */
+void vInput_Timer_Cb( TimerHandle_t xTimer )
+{   
+    err_t err;
+
+    //Get actual RGB status.
+    RGB_Get_Status_Cb( &actual_color, &actual_toggle_level );
+
+    err = tcpip_callback( publish_message, NULL );
+    
+    if ( err != ERR_OK )
+    {
+        PRINTF( "Failed to invoke publishing of a message on the tcpip_thread: %d.\r\n", err );
+    }
 }
 
 /*!
@@ -430,22 +516,6 @@ static void app_thread(void *arg)
     else
     {
         PRINTF("Failed to obtain IP address: %d.\r\n", err);
-    }
-
-    /* Publish some messages */
-    for (i = 0; i < 5;)
-    {
-        if (connected)
-        {
-            err = tcpip_callback(publish_message, NULL);
-            if (err != ERR_OK)
-            {
-                PRINTF("Failed to invoke publishing of a message on the tcpip_thread: %d.\r\n", err);
-            }
-            i++;
-        }
-
-        sys_msleep(1000U);
     }
 
     vTaskDelete(NULL);
