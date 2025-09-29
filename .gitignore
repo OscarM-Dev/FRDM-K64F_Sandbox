@@ -6,3 +6,4 @@
 *.map
 *.su
 *.jlink
+.vscode/
