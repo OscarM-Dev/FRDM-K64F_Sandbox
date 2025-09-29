@@ -41,11 +41,13 @@
 #include "fsl_phyksz8081.h"
 #include "fsl_enet_mdio.h"
 #include "fsl_device_registers.h"
+#include "rgb_controller.h"
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
 
 /* @TEST_ANCHOR */
+#define BOARD_1 //Board ID.
 
 /* MAC address configuration. */
 #ifndef configMAC_ADDR
@@ -68,8 +70,6 @@
 #define EXAMPLE_CLOCK_FREQ CLOCK_GetFreq(kCLOCK_CoreSysClk)
 
 /* GPIO pin configuration. */
-#define BOARD_LED_GPIO       BOARD_LED_RED_GPIO
-#define BOARD_LED_GPIO_PIN   BOARD_LED_RED_GPIO_PIN
 #define BOARD_SW_GPIO        BOARD_SW3_GPIO
 #define BOARD_SW_GPIO_PIN    BOARD_SW3_GPIO_PIN
 #define BOARD_SW_PORT        BOARD_SW3_PORT
@@ -99,6 +99,8 @@
 
 /*! @brief Priority of the temporary initialization thread. */
 #define APP_THREAD_PRIO DEFAULT_THREAD_PRIO
+
+#define MQTT_EXPECTED_RECEIVE_MSGS  6   //Number of expected messages to receive.
 
 /*******************************************************************************
  * Prototypes
@@ -176,53 +178,100 @@ static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len
  */
 static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
 {
-    int i;
+    static const uint8_t *Expected_messages[] = { "Up", "Down", "Level 1", "Level 2", "Level 3", "Level 4" };
+    uint8_t i;
 
-    LWIP_UNUSED_ARG(arg);
+    LWIP_UNUSED_ARG( arg );
 
-    for (i = 0; i < len; i++)
+    for ( i = 0; i < len; i++ )
     {
-        if (isprint(data[i]))
+        if ( isprint( data[i] ) )
         {
-            PRINTF("%c", (char)data[i]);
+            PRINTF( "%c", ( char ) data[i] );
         }
         else
         {
-            PRINTF("\\x%02x", data[i]);
+            PRINTF( "\\x%02x", data[i] );
         }
     }
 
-    if (flags & MQTT_DATA_FLAG_LAST)
+    if ( flags & MQTT_DATA_FLAG_LAST )
     {
-        PRINTF("\"\r\n");
+        PRINTF( "\"\r\n" );
+    }
+
+    //Analizing message received.
+    for ( i = 0; i < MQTT_EXPECTED_RECEIVE_MSGS; i++ )
+    {
+        if ( memcmp( Expected_messages[i], data, len ) == 0 )
+        {
+            break;
+        }
+    }
+
+    //Proccesing data.
+    switch ( i )
+    {
+        case 0: //Up RGB color.
+            RGB_Set_Color_Cb( COLOR_UP );
+        break;
+
+        case 1: //Down RGB color.
+            RGB_Set_Color_Cb( COLOR_DOWN );
+        break;
+
+        case 2: //Level 1 RGB toggle.
+            RGB_Set_Toggle_Delay_Cb( LEVEL_1_1000_MS );
+        break;
+
+        case 3: //Level 2 RGB toggle.
+            RGB_Set_Toggle_Delay_Cb( LEVEL_2_500_MS );
+        break;
+
+        case 4: //Level 3 RGB toggle.
+            RGB_Set_Toggle_Delay_Cb( LEVEL_3_200_MS );
+        break;
+
+        case 5: //Level 4 RGB toggle.
+            RGB_Set_Toggle_Delay_Cb( LEVEL_4_100_MS );
+        break;
+
+        default:
+        break;
     }
 }
 
 /*!
  * @brief Subscribe to MQTT topics.
- se subscribe a 2 filtros de tópicos.
  */
-static void mqtt_subscribe_topics(mqtt_client_t *client)
-{
-    static const char *topics[] = {"lwip_topic/#", "lwip_other/#"};
-    int qos[]                   = {0, 1};
+static void mqtt_subscribe_topics( mqtt_client_t *client )
+{   
+    #ifdef BOARD_1
+        static const char *Sub_topics[] = { "MQTT/K64F/Board2/BTN1", "MQTT/K64F/Board2/BTN2", "MQTT/K64F/Board2/POT" };
+    #else
+        static const char *Sub_topics[] = { "MQTT/K64F/Board1/BTN1", "MQTT/K64F/Board1/BTN2", "MQTT/K64F/Board1/POT" };
+    #endif
+    
+    uint8_t QoS[] = { 1, 1, 1 };
     err_t err;
     int i;
 
-    mqtt_set_inpub_callback(client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb,
-                            LWIP_CONST_CAST(void *, &mqtt_client_info));
+    //Setting input callbacks.
+    mqtt_set_inpub_callback( client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, LWIP_CONST_CAST( void *, &mqtt_client_info ) );
 
-    for (i = 0; i < ARRAY_SIZE(topics); i++)
+    //Subscribing to topics.
+    for ( i = 0; i < ARRAY_SIZE( Sub_topics ); i++ )
     {
-        err = mqtt_subscribe(client, topics[i], qos[i], mqtt_topic_subscribed_cb, LWIP_CONST_CAST(void *, topics[i]));
+        err = mqtt_subscribe( client, Sub_topics[i], QoS[i], mqtt_topic_subscribed_cb, LWIP_CONST_CAST( void *, Sub_topics[i] ) );
 
-        if (err == ERR_OK)
+        if ( err == ERR_OK )
         {
-            PRINTF("Subscribing to the topic \"%s\" with QoS %d...\r\n", topics[i], qos[i]);
+            PRINTF( "Subscribing to the topic \"%s\" with QoS %d...\r\n", Sub_topics[i], QoS[i] );
         }
+
         else
         {
-            PRINTF("Failed to subscribe to the topic \"%s\" with QoS %d: %d.\r\n", topics[i], qos[i], err);
+            PRINTF( "Failed to subscribe to the topic \"%s\" with QoS %d: %d.\r\n", Sub_topics[i], QoS[i], err );
         }
     }
 }
@@ -275,8 +324,7 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
 
 /*!
  * @brief Starts connecting to MQTT broker. To be called on tcpip_thread.
-
-conecta cliente con el broker.
+ * @note Connects the client with the MQTT broker.
  */
 static void connect_to_mqtt(void *ctx)
 {
@@ -367,13 +415,13 @@ static void app_thread(void *arg)
     {
         /* Resolve MQTT broker's host name to an IP address */
         PRINTF("Resolving \"%s\"...\r\n", EXAMPLE_MQTT_SERVER_HOST);
-        err = netconn_gethostbyname(EXAMPLE_MQTT_SERVER_HOST, &mqtt_addr); //Query para obtener la ip del broker.
+        err = netconn_gethostbyname(EXAMPLE_MQTT_SERVER_HOST, &mqtt_addr); //Query for obtaining broker IP address. -->DNS
     }
 
     if (err == ERR_OK)
     {
         /* Start connecting to MQTT broker from tcpip_thread */
-        err = tcpip_callback(connect_to_mqtt, NULL); //llama función desde el thread de tcp.
+        err = tcpip_callback(connect_to_mqtt, NULL);
         if (err != ERR_OK)
         {
             PRINTF("Failed to invoke broker connection on the tcpip_thread: %d.\r\n", err);
@@ -436,7 +484,7 @@ static void stack_init(void *arg)
     };
 
     LWIP_UNUSED_ARG(arg);
-    generate_client_id();
+    generate_client_id();   //Generate client ID.
 
     mdioHandle.resource.csrClock_Hz = EXAMPLE_CLOCK_FREQ;
 
@@ -487,6 +535,7 @@ int main(void)
     BOARD_InitDebugConsole();
     /* Disable SYSMPU. */
     base->CESR &= ~SYSMPU_CESR_VLD_MASK;
+    RGB_Init();
 
     /* Initialize lwIP from thread */
     if (sys_thread_new("main", stack_init, NULL, INIT_THREAD_STACKSIZE, INIT_THREAD_PRIO) == NULL)
