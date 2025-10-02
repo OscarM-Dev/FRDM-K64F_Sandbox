@@ -42,13 +42,14 @@
 #include "fsl_enet_mdio.h"
 #include "fsl_device_registers.h"
 #include "rgb_controller.h"
+#include "fsl_adc16.h"
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
 
 /* @TEST_ANCHOR */
 #define BOARD_1 //Board ID.
-
+#define TIME	1000000
 /* MAC address configuration. */
 #ifndef configMAC_ADDR
 #define configMAC_ADDR                     \
@@ -69,13 +70,9 @@
 /* ENET clock frequency. */
 #define EXAMPLE_CLOCK_FREQ CLOCK_GetFreq(kCLOCK_CoreSysClk)
 
-/* GPIO pin configuration. */
-#define BOARD_SW_GPIO        BOARD_SW3_GPIO
-#define BOARD_SW_GPIO_PIN    BOARD_SW3_GPIO_PIN
-#define BOARD_SW_PORT        BOARD_SW3_PORT
-#define BOARD_SW_IRQ         BOARD_SW3_IRQ
-#define BOARD_SW_IRQ_HANDLER BOARD_SW3_IRQ_HANDLER
-
+#define DEMO_ADC16_BASE          ADC0
+#define DEMO_ADC16_CHANNEL_GROUP 0U
+#define DEMO_ADC16_USER_CHANNEL  12U
 
 #ifndef EXAMPLE_NETIF_INIT_FN
 /*! @brief Network interface initialization function. */
@@ -594,11 +591,33 @@ static void stack_init(void *arg)
     vTaskDelete(NULL);
 }
 
+
+void BOARD_SW3_IRQ_HANDLER(void);
+
+void BOARD_SW2_IRQ_HANDLER(void);
+
+
+
 /*!
  * @brief Main function
  */
 int main(void)
 {
+	uint32_t ADCvar_u32;
+    adc16_config_t adc16ConfigStruct;
+    adc16_channel_config_t adc16ChannelConfigStruct;
+    /* Define the init structure for the input switch pin */
+    gpio_pin_config_t sw_config = {
+        kGPIO_DigitalInput,
+        0,
+    };
+
+    /* Define the init structure for the output LED pin */
+    gpio_pin_config_t led_config = {
+        kGPIO_DigitalOutput,
+        0,
+    };
+
     SYSMPU_Type *base = SYSMPU;
     BOARD_InitBootPins();
     BOARD_InitBootClocks();
@@ -606,6 +625,40 @@ int main(void)
     /* Disable SYSMPU. */
     base->CESR &= ~SYSMPU_CESR_VLD_MASK;
     RGB_Init();
+    ADC16_GetDefaultConfig(&adc16ConfigStruct);
+    ADC16_Init(DEMO_ADC16_BASE, &adc16ConfigStruct);
+
+    ADC16_EnableHardwareTrigger(DEMO_ADC16_BASE, false); /* Make sure the software trigger is used. */
+
+    adc16ChannelConfigStruct.channelNumber                        = DEMO_ADC16_USER_CHANNEL;
+    adc16ChannelConfigStruct.enableInterruptOnConversionCompleted = false;
+
+    PORT_SetPinInterruptConfig(BOARD_SW3_PORT, BOARD_SW3_GPIO_PIN, kPORT_InterruptFallingEdge);
+    PORT_SetPinInterruptConfig(BOARD_SW2_PORT, BOARD_SW2_GPIO_PIN, kPORT_InterruptFallingEdge);
+
+    EnableIRQ(BOARD_SW3_IRQ);
+    EnableIRQ(BOARD_SW2_IRQ);
+
+    GPIO_PinInit(BOARD_SW3_GPIO, BOARD_SW3_GPIO_PIN, &sw_config);
+    GPIO_PinInit(BOARD_SW2_GPIO, BOARD_SW2_GPIO_PIN, &sw_config);
+
+
+    /* Init output LED GPIO. */
+    GPIO_PinInit(BOARD_LED_RED_GPIO, BOARD_LED_RED_GPIO_PIN, &led_config);
+    GPIO_PinInit(BOARD_LED_RED_GPIO, BOARD_LED_BLUE_GPIO_PIN, &led_config);
+
+    for(;;)
+    {
+        ADC16_SetChannelConfig(DEMO_ADC16_BASE, DEMO_ADC16_CHANNEL_GROUP, &adc16ChannelConfigStruct);
+        ADC16_SetChannelConfig(DEMO_ADC16_BASE, DEMO_ADC16_CHANNEL_GROUP, &adc16ChannelConfigStruct);
+        while (0U == (kADC16_ChannelConversionDoneFlag &
+                      ADC16_GetChannelStatusFlags(DEMO_ADC16_BASE, DEMO_ADC16_CHANNEL_GROUP)));
+
+        ADCvar_u32 =  ADC16_GetChannelConversionValue(DEMO_ADC16_BASE, DEMO_ADC16_CHANNEL_GROUP);
+
+        SDK_DelayAtLeastUs(750000, 120000000);
+        PRINTF("ADC Value: %d\r\n",ADCvar_u32 );
+    }
 
     /* Initialize lwIP from thread */
     if (sys_thread_new("main", stack_init, NULL, INIT_THREAD_STACKSIZE, INIT_THREAD_PRIO) == NULL)
@@ -617,5 +670,20 @@ int main(void)
 
     /* Will not get here unless a task calls vTaskEndScheduler ()*/
     return 0;
+}
+
+void BOARD_SW3_IRQ_HANDLER(void)
+{
+    GPIO_PortClearInterruptFlags(BOARD_SW3_GPIO, 1U << BOARD_SW3_GPIO_PIN);
+    GPIO_PortToggle(BOARD_LED_RED_GPIO, 1U << BOARD_LED_RED_GPIO_PIN);
+    SDK_ISR_EXIT_BARRIER;
+}
+
+void BOARD_SW2_IRQ_HANDLER(void)
+{
+    /* Clear external interrupt flag. */
+    GPIO_PortClearInterruptFlags(BOARD_SW2_GPIO, 1U << BOARD_SW2_GPIO_PIN);
+    GPIO_PortToggle(BOARD_LED_BLUE_GPIO, 1U << BOARD_LED_BLUE_GPIO_PIN);
+    SDK_ISR_EXIT_BARRIER;
 }
 #endif
