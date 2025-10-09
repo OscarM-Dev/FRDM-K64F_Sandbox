@@ -30,10 +30,10 @@
 ../lwip/src/apps/mqtt/mqtt.c:1034:1:mqtt_tcp_poll_cb	24	static
 ../lwip/src/apps/mqtt/mqtt.c:1051:1:mqtt_tcp_connect_cb	32	static
 ../lwip/src/apps/mqtt/mqtt.c:1104:1:mqtt_publish	56	static
-../lwip/src/apps/mqtt/mqtt.c:1180:1:mqtt_sub_unsub	56	static
-../lwip/src/apps/mqtt/mqtt.c:1245:1:mqtt_set_inpub_callback	24	static
-../lwip/src/apps/mqtt/mqtt.c:1261:1:mqtt_client_new	8	static
-../lwip/src/apps/mqtt/mqtt.c:1273:1:mqtt_client_free	16	static
-../lwip/src/apps/mqtt/mqtt.c:1290:1:mqtt_client_connect	64	static
-../lwip/src/apps/mqtt/mqtt.c:1454:1:mqtt_disconnect	16	static
-../lwip/src/apps/mqtt/mqtt.c:1473:1:mqtt_client_is_connected	16	static
+../lwip/src/apps/mqtt/mqtt.c:1181:1:mqtt_sub_unsub	56	static
+../lwip/src/apps/mqtt/mqtt.c:1246:1:mqtt_set_inpub_callback	24	static
+../lwip/src/apps/mqtt/mqtt.c:1262:1:mqtt_client_new	8	static
+../lwip/src/apps/mqtt/mqtt.c:1274:1:mqtt_client_free	16	static
+../lwip/src/apps/mqtt/mqtt.c:1291:1:mqtt_client_connect	64	static
+../lwip/src/apps/mqtt/mqtt.c:1455:1:mqtt_disconnect	16	static
+../lwip/src/apps/mqtt/mqtt.c:1474:1:mqtt_client_is_connected	16	static

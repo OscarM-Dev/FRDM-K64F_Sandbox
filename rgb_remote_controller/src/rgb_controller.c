@@ -77,7 +77,7 @@ bool RGB_Init( void )
     xTimerStart( RGB_timer, pdMS_TO_TICKS( 10 ) );
 
     //Creating user input timer.
-    Input_timer = xTimerCreate( "User input Timer", pdMS_TO_TICKS( 1000 ), true, NULL, vInput_Timer_Cb );
+    Input_timer = xTimerCreate( "User input Timer", pdMS_TO_TICKS( 100U ), true, NULL, vInput_Timer_Cb );
         
     return result;
 }

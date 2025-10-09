@@ -22,7 +22,6 @@
 #include "clock_config.h"
 #include "board.h"
 #include "fsl_phy.h"
-
 #include "lwip/api.h"
 #include "lwip/apps/mqtt.h"
 #include "lwip/dhcp.h"
@@ -108,6 +107,15 @@ static void connect_to_mqtt(void *ctx);
 /*******************************************************************************
  * Variables
  ******************************************************************************/
+const uint32_t g_Adc16_12bitFullRange = 4096U;
+uint8_t sw2_flag = 0;
+uint8_t sw3_flag = 0;
+uint32_t ADCvar_u32;
+uint8_t TopicID_u8 = 0U;
+uint8_t MessageID_u8 = 0U;
+adc16_config_t adc16ConfigStruct;
+adc16_channel_config_t adc16ChannelConfigStruct;
+
 
 static mdio_handle_t mdioHandle = {.ops = &EXAMPLE_MDIO_OPS};
 static phy_handle_t phyHandle   = {.phyAddr = EXAMPLE_PHY_ADDRESS, .mdioHandle = &mdioHandle, .ops = &EXAMPLE_PHY_OPS};
@@ -170,7 +178,7 @@ static void mqtt_topic_subscribed_cb(void *arg, err_t err)
 
     if ( count >= 3 )
     {   //Subscribed to all topics
-        xTimerStart( Input_timer, pdMS_TO_TICKS( 10 ) ); //Start input timer only when all subscriptions were made.
+        xTimerStart( Input_timer, pdMS_TO_TICKS(10)); //Start input timer only when all subscriptions were made.
         count = 0;
     }
 }
@@ -368,6 +376,7 @@ static void mqtt_message_published_cb(void *arg, err_t err)
 /*!
  * @brief Publishes a message. To be called on tcpip_thread.
  */
+//static void publish_message(void *ctx, uint8_t message_ID, uint8_t Topic_ID)
 static void publish_message(void *ctx)
 {
     #ifdef BOARD_1
@@ -385,9 +394,12 @@ static void publish_message(void *ctx)
 
     LWIP_UNUSED_ARG(ctx);
 
-    PRINTF( "Going to publish to the topic \"%s\"...\r\n", Pub_topics[TOPIC_STATUS] );
+    PRINTF( "Going to publish to the topic \"%s\"...\r\n", Pub_topics[TopicID_u8] );
 
     //Determing actual color message ID
+
+if(TopicID_u8 == TOPIC_STATUS)
+{
     switch( actual_color )
     {
         case RED:
@@ -422,13 +434,23 @@ static void publish_message(void *ctx)
             actual_level_message_ID = MESSAGE_9_POT_LEVEL_4;
         break;
     }
-
     //Publish status msgs.
-    mqtt_publish( mqtt_client, Pub_topics[TOPIC_STATUS], Pub_msgs[actual_color_message_ID], strlen( Pub_msgs[actual_color_message_ID] ), 
-    QoS[TOPIC_STATUS], false, mqtt_message_published_cb, ( void *) Pub_topics[TOPIC_STATUS] );
+      mqtt_publish( mqtt_client, Pub_topics[TopicID_u8], Pub_msgs[actual_color_message_ID], strlen( Pub_msgs[actual_color_message_ID] ),
+      QoS[0U], false, mqtt_message_published_cb, ( void *) Pub_topics[TopicID_u8] );
 
-    mqtt_publish( mqtt_client, Pub_topics[TOPIC_STATUS], Pub_msgs[actual_level_message_ID], strlen( Pub_msgs[actual_level_message_ID] ), 
-    QoS[TOPIC_STATUS], false, mqtt_message_published_cb, ( void *) Pub_topics[TOPIC_STATUS] );
+      mqtt_publish( mqtt_client, Pub_topics[TopicID_u8], Pub_msgs[actual_level_message_ID], strlen( Pub_msgs[actual_level_message_ID] ),
+      QoS[0U], false, mqtt_message_published_cb, ( void *) Pub_topics[TopicID_u8] );
+}
+
+else
+{
+    //Publish status msgs.
+    mqtt_publish( mqtt_client, Pub_topics[TopicID_u8], Pub_msgs[MessageID_u8], strlen( Pub_msgs[MessageID_u8] ),
+    QoS[0U], false, mqtt_message_published_cb, ( void *) Pub_topics[TopicID_u8] );
+}
+
+//    mqtt_publish( mqtt_client, Pub_topics[TOPIC_STATUS], Pub_msgs[actual_level_message_ID], strlen( Pub_msgs[actual_level_message_ID] ),
+//    QoS[TOPIC_STATUS], false, mqtt_message_published_cb, ( void *) Pub_topics[TOPIC_STATUS] );
 }
 
 /**
@@ -438,17 +460,80 @@ static void publish_message(void *ctx)
  */
 void vInput_Timer_Cb( TimerHandle_t xTimer )
 {   
+	static int counter = 0U;
     err_t err;
 
     //Get actual RGB status.
     RGB_Get_Status_Cb( &actual_color, &actual_toggle_level );
 
-    err = tcpip_callback( publish_message, NULL );
-    
-    if ( err != ERR_OK )
+    counter++;
+
+    if(1 == sw2_flag)
     {
-        PRINTF( "Failed to invoke publishing of a message on the tcpip_thread: %d.\r\n", err );
+    	TopicID_u8 = TOPIC_BTN1;
+    	MessageID_u8 = MESSAGE_4_BTN_1;
+        PRINTF("--- SW2 HAS BEEN PRESSED \r\n");
+    	sw2_flag = 0;
     }
+
+    else if(1 == sw3_flag)
+    {
+    	TopicID_u8 = TOPIC_BTN2;
+    	MessageID_u8 = MESSAGE_5_BTN_2;
+        PRINTF("--- SW3 HAS BEEN PRESSED \r\n");
+    	sw3_flag = 0;
+    }
+
+    else if (4 == counter)
+	{
+    	TopicID_u8 = TOPIC_STATUS;
+    	counter = 0U;
+//    	MessageID_u8 =
+	}
+
+    else
+    {
+    	TopicID_u8 = TOPIC_POT;
+    	ADC16_SetChannelConfig(DEMO_ADC16_BASE, DEMO_ADC16_CHANNEL_GROUP, &adc16ChannelConfigStruct);
+    	ADC16_SetChannelConfig(DEMO_ADC16_BASE, DEMO_ADC16_CHANNEL_GROUP, &adc16ChannelConfigStruct);
+    	while (0U == (kADC16_ChannelConversionDoneFlag &
+    	       ADC16_GetChannelStatusFlags(DEMO_ADC16_BASE, DEMO_ADC16_CHANNEL_GROUP)));
+
+    	ADCvar_u32 =  ADC16_GetChannelConversionValue(DEMO_ADC16_BASE, DEMO_ADC16_CHANNEL_GROUP);
+
+    	//    PRINTF("ADC VALUE: %d /n", ADCvar_u32);
+
+
+    	    if(ADCvar_u32 < 1023U)
+    	    {
+    	    	MessageID_u8 = MESSAGE_6_POT_LEVEL_1;
+    	//    	publish_message(NULL, MESSAGE_6_POT_LEVEL_1, TOPIC_POT);
+    	        PRINTF("LEVEL 1: \r\n");
+    	    }
+
+    	    else if(ADCvar_u32 < 2046 )
+    	    {
+    	    	MessageID_u8 = MESSAGE_7_POT_LEVEL_2;
+    	//    	publish_message(NULL, MESSAGE_7_POT_LEVEL_2, TOPIC_POT);
+    	        PRINTF("LEVEL 2: \r\n");
+    	    }
+
+    	    else if(ADCvar_u32 < 3069 )
+    	    {
+    	    	MessageID_u8 = MESSAGE_8_POT_LEVEL_3;
+    	//    	publish_message(NULL, MESSAGE_8_POT_LEVEL_3, TOPIC_POT);
+    	        PRINTF("LEVEL 3: \r\n");
+    	    }
+
+    	    else
+    	    {
+    	    	MessageID_u8 = MESSAGE_9_POT_LEVEL_4;
+    	//    	publish_message(NULL, MESSAGE_9_POT_LEVEL_4, TOPIC_POT);
+    	        PRINTF("LEVEL 4: \r\n");
+    	    }
+    }
+    err = tcpip_callback( publish_message, NULL );
+
 }
 
 /*!
@@ -591,7 +676,6 @@ static void stack_init(void *arg)
     vTaskDelete(NULL);
 }
 
-
 void BOARD_SW3_IRQ_HANDLER(void);
 
 void BOARD_SW2_IRQ_HANDLER(void);
@@ -603,9 +687,14 @@ void BOARD_SW2_IRQ_HANDLER(void);
  */
 int main(void)
 {
-	uint32_t ADCvar_u32;
-    adc16_config_t adc16ConfigStruct;
-    adc16_channel_config_t adc16ChannelConfigStruct;
+
+    SYSMPU_Type *base = SYSMPU;
+    BOARD_InitBootPins();
+    BOARD_InitBootClocks();
+    BOARD_InitDebugConsole();
+    /* Disable SYSMPU. */
+    base->CESR &= ~SYSMPU_CESR_VLD_MASK;
+
     /* Define the init structure for the input switch pin */
     gpio_pin_config_t sw_config = {
         kGPIO_DigitalInput,
@@ -617,19 +706,22 @@ int main(void)
         kGPIO_DigitalOutput,
         0,
     };
-
-    SYSMPU_Type *base = SYSMPU;
-    BOARD_InitBootPins();
-    BOARD_InitBootClocks();
-    BOARD_InitDebugConsole();
-    /* Disable SYSMPU. */
-    base->CESR &= ~SYSMPU_CESR_VLD_MASK;
     RGB_Init();
     ADC16_GetDefaultConfig(&adc16ConfigStruct);
     ADC16_Init(DEMO_ADC16_BASE, &adc16ConfigStruct);
 
     ADC16_EnableHardwareTrigger(DEMO_ADC16_BASE, false); /* Make sure the software trigger is used. */
 
+    if (kStatus_Success == ADC16_DoAutoCalibration(DEMO_ADC16_BASE))
+    {
+        PRINTF("ADC16_DoAutoCalibration() Done.\r\n");
+    }
+    else
+    {
+        PRINTF("ADC16_DoAutoCalibration() Failed.\r\n");
+    }
+
+    PRINTF("ADC Full Range: %d\r\n", g_Adc16_12bitFullRange);
     adc16ChannelConfigStruct.channelNumber                        = DEMO_ADC16_USER_CHANNEL;
     adc16ChannelConfigStruct.enableInterruptOnConversionCompleted = false;
 
@@ -647,25 +739,16 @@ int main(void)
     GPIO_PinInit(BOARD_LED_RED_GPIO, BOARD_LED_RED_GPIO_PIN, &led_config);
     GPIO_PinInit(BOARD_LED_RED_GPIO, BOARD_LED_BLUE_GPIO_PIN, &led_config);
 
-    for(;;)
-    {
-        ADC16_SetChannelConfig(DEMO_ADC16_BASE, DEMO_ADC16_CHANNEL_GROUP, &adc16ChannelConfigStruct);
-        ADC16_SetChannelConfig(DEMO_ADC16_BASE, DEMO_ADC16_CHANNEL_GROUP, &adc16ChannelConfigStruct);
-        while (0U == (kADC16_ChannelConversionDoneFlag &
-                      ADC16_GetChannelStatusFlags(DEMO_ADC16_BASE, DEMO_ADC16_CHANNEL_GROUP)));
+    ADC16_SetChannelConfig(DEMO_ADC16_BASE, DEMO_ADC16_CHANNEL_GROUP, &adc16ChannelConfigStruct);
+    ADC16_SetChannelConfig(DEMO_ADC16_BASE, DEMO_ADC16_CHANNEL_GROUP, &adc16ChannelConfigStruct);
 
-        ADCvar_u32 =  ADC16_GetChannelConversionValue(DEMO_ADC16_BASE, DEMO_ADC16_CHANNEL_GROUP);
-
-        SDK_DelayAtLeastUs(750000, 120000000);
-        PRINTF("ADC Value: %d\r\n",ADCvar_u32 );
-    }
-
+#if 0
+#endif
     /* Initialize lwIP from thread */
     if (sys_thread_new("main", stack_init, NULL, INIT_THREAD_STACKSIZE, INIT_THREAD_PRIO) == NULL)
     {
         LWIP_ASSERT("main(): Task creation failed.", 0);
     }
-
     vTaskStartScheduler();
 
     /* Will not get here unless a task calls vTaskEndScheduler ()*/
@@ -674,16 +757,17 @@ int main(void)
 
 void BOARD_SW3_IRQ_HANDLER(void)
 {
+	sw3_flag = 1;
     GPIO_PortClearInterruptFlags(BOARD_SW3_GPIO, 1U << BOARD_SW3_GPIO_PIN);
-    GPIO_PortToggle(BOARD_LED_RED_GPIO, 1U << BOARD_LED_RED_GPIO_PIN);
     SDK_ISR_EXIT_BARRIER;
 }
 
 void BOARD_SW2_IRQ_HANDLER(void)
 {
+	sw2_flag = 1;
+
     /* Clear external interrupt flag. */
     GPIO_PortClearInterruptFlags(BOARD_SW2_GPIO, 1U << BOARD_SW2_GPIO_PIN);
-    GPIO_PortToggle(BOARD_LED_BLUE_GPIO, 1U << BOARD_LED_BLUE_GPIO_PIN);
     SDK_ISR_EXIT_BARRIER;
 }
 #endif
