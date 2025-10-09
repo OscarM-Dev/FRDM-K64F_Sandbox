@@ -1,7 +1,7 @@
-C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F_Practices\FRDM-K64F_Sandbox\drivers/fsl_clock.h:668:20:CLOCK_EnableClock	24	static
-C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F_Practices\FRDM-K64F_Sandbox\drivers/fsl_enet.h:970:24:ENET_ReadSMIData	16	static
-C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F_Practices\FRDM-K64F_Sandbox\drivers/fsl_enet.h:1291:24:ENET_GetInterruptStatus	16	static
-C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F_Practices\FRDM-K64F_Sandbox\drivers/fsl_enet.h:1310:20:ENET_ClearInterruptStatus	16	static
+C:\Repositories\FRDM-K64F_Sandbox\drivers/fsl_clock.h:668:20:CLOCK_EnableClock	24	static
+C:\Repositories\FRDM-K64F_Sandbox\drivers/fsl_enet.h:970:24:ENET_ReadSMIData	16	static
+C:\Repositories\FRDM-K64F_Sandbox\drivers/fsl_enet.h:1291:24:ENET_GetInterruptStatus	16	static
+C:\Repositories\FRDM-K64F_Sandbox\drivers/fsl_enet.h:1310:20:ENET_ClearInterruptStatus	16	static
 ../mdio/fsl_enet_mdio.c:46:13:ENET_MDIO_Init	32	static
 ../mdio/fsl_enet_mdio.c:59:17:ENET_MDIO_Write	48	static
 ../mdio/fsl_enet_mdio.c:83:17:ENET_MDIO_Read	40	static

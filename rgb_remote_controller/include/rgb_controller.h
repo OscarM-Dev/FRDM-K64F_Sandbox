@@ -63,6 +63,35 @@ typedef enum
     LEVEL_4_100_MS
 } RGB_toggle_levels;
 
+/**
+ * @brief Publish Topics IDs.
+ * 
+ */
+typedef enum
+{
+    TOPIC_STATUS,
+    TOPIC_BTN1,
+    TOPIC_BTN2,
+    TOPIC_POT
+} RGB_MQTT_publisher_topics_IDs;
+
+/**
+ * @brief Publish Message IDs.
+ * 
+ */
+typedef enum
+{
+    MESSAGE_1_STATUS_COLOR_RED,
+    MESSAGE_2_STATUS_COLOR_GREEN,
+    MESSAGE_3_STATUS_COLOR_BLUE,
+    MESSAGE_4_BTN_1,
+    MESSAGE_5_BTN_2,
+    MESSAGE_6_POT_LEVEL_1,
+    MESSAGE_7_POT_LEVEL_2,
+    MESSAGE_8_POT_LEVEL_3,
+    MESSAGE_9_POT_LEVEL_4
+} RGB_MQTT_publisher_message_IDs;
+
 /*******************************************************************************
  * Structs.
  ******************************************************************************/
@@ -89,13 +118,25 @@ typedef struct
     uint8_t RGB_toggle_timer_counts;
 } RGB_control;
 
+/**
+ * @brief Control structure for RGB related publisher.
+ * 
+ */
+typedef struct 
+{
+    uint8_t Num_Messages;   //Number of messages to publish.
+} RGB_MQTT_publisher;
+
+
 /*******************************************************************************
  * RGB related functions.
  ******************************************************************************/
 bool RGB_Init( void );
 bool RGB_Set_Color_Cb( RGB_color_update Color_update );
 bool RGB_Set_Toggle_Delay_Cb( RGB_toggle_levels level );
+bool RGB_Get_Status_Cb( RGB_colors *color, RGB_toggle_levels *level );
 void vRGB_Timer_Cb( TimerHandle_t xTimer );
+extern void vInput_Timer_Cb( TimerHandle_t xTimer );
 
 /*******************************************************************************
  * Buttons related functions.

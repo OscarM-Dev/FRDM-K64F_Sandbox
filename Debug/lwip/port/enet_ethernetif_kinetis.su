@@ -1,7 +1,7 @@
-C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F_Practices\FRDM-K64F_Sandbox\CMSIS/core_cm4.h:1809:22:__NVIC_SetPriority	16	static
-C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F_Practices\FRDM-K64F_Sandbox\drivers/fsl_enet.h:1187:20:ENET_ActiveRead	16	static
-C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F_Practices\FRDM-K64F_Sandbox\drivers/fsl_enet.h:1260:20:ENET_EnableInterrupts	16	static
-C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F_Practices\FRDM-K64F_Sandbox\drivers/fsl_enet.h:1279:20:ENET_DisableInterrupts	16	static
+C:\Repositories\FRDM-K64F_Sandbox\CMSIS/core_cm4.h:1809:22:__NVIC_SetPriority	16	static
+C:\Repositories\FRDM-K64F_Sandbox\drivers/fsl_enet.h:1187:20:ENET_ActiveRead	16	static
+C:\Repositories\FRDM-K64F_Sandbox\drivers/fsl_enet.h:1260:20:ENET_EnableInterrupts	16	static
+C:\Repositories\FRDM-K64F_Sandbox\drivers/fsl_enet.h:1279:20:ENET_DisableInterrupts	16	static
 ../lwip/port/enet_ethernetif_kinetis.c:183:13:ethernet_callback	48	static
 ../lwip/port/enet_ethernetif_kinetis.c:312:14:ethernetif_rx_alloc	48	static
 ../lwip/port/enet_ethernetif_kinetis.c:340:13:ethernetif_rx_free	40	static

@@ -51,13 +51,14 @@ static RGB_control RGB_LED =
 };
 
 //RGB timer handle
-static TimerHandle_t RGB_timer;
+static TimerHandle_t RGB_timer; 
+TimerHandle_t Input_timer;
 
 /*******************************************************************************
  * RGB related functions.
  ******************************************************************************/
 /**
- * @brief This function initialices the RGB pins and the RGB timer.
+ * @brief This function initialices the RGB pins and the RGB and inputs timer.
  * @note The RGB pins have negative logic. 
  * 
  * @retval result of operation.
@@ -71,9 +72,13 @@ bool RGB_Init( void )
         GPIO_PinInit( RGB_LED.RGB_pins_conf[i].Gpio, RGB_LED.RGB_pins_conf[i].Pin, &RGB_LED.RGB_pins_conf[i].Pin_config );
     }
 
+    //Creating RGB timer.
     RGB_timer = xTimerCreate( "RGB Timer", pdMS_TO_TICKS( 100 ), true, NULL, vRGB_Timer_Cb );
     xTimerStart( RGB_timer, pdMS_TO_TICKS( 10 ) );
 
+    //Creating user input timer.
+    Input_timer = xTimerCreate( "User input Timer", pdMS_TO_TICKS( 100U ), true, NULL, vInput_Timer_Cb );
+        
     return result;
 }
 
@@ -186,6 +191,27 @@ void vRGB_Timer_Cb( TimerHandle_t xTimer )
         enabled = !enabled;
     }
 
+}
+
+/**
+ * @brief This function gets the actual RGB status.
+ * 
+ * @param color Pointer to data to store actual color value.
+ * @param level Pointer to data to store actual level value.
+ * @retval result of operation. 
+ */
+bool RGB_Get_Status_Cb( RGB_colors *color, RGB_toggle_levels *level )
+{  
+    bool result = false;
+
+    if ( color != NULL && level != NULL )
+    {
+        *color = RGB_LED.RGB_color;
+        *level = RGB_LED.RGB_toggle_level;
+        result = true;
+    }
+
+    return result;
 }
 
 /*******************************************************************************

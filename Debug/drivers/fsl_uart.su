@@ -1,4 +1,4 @@
-C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F_Practices\FRDM-K64F_Sandbox\CMSIS/core_cm4.h:1679:22:__NVIC_EnableIRQ	16	static
+C:\Repositories\FRDM-K64F_Sandbox\CMSIS/core_cm4.h:1679:22:__NVIC_EnableIRQ	16	static
 ../drivers/fsl_clock.h:668:20:CLOCK_EnableClock	24	static
 ../drivers/fsl_clock.h:679:20:CLOCK_DisableClock	24	static
 ../drivers/fsl_common_arm.h:499:24:EnableIRQ	24	static

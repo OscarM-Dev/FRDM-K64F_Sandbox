@@ -83,6 +83,9 @@ void BOARD_InitPins(void)
     //Port E Clock Gate Control: Clock enabled
     CLOCK_EnableClock( kCLOCK_PortE );
 
+    /* PORTB2 (pin 55) is configured as ADC0_SE12 */
+    PORT_SetPinMux(PORTB, 2U, kPORT_PinDisabledOrAnalog);
+
     /* PORTA12 (pin 42) is configured as RMII0_RXD1 */
     PORT_SetPinMux(PORTA, 12U, kPORT_MuxAlt4);
 
@@ -150,8 +153,14 @@ void BOARD_InitPins(void)
     //PORTB21 (pin 67) is configured as PTB21
     PORT_SetPinMux( PORTB, 21U, kPORT_MuxAsGpio );
 
-    /* PORTB22 (pin 68) is configured as PTB22 */
+    /* PORTB22 (pin 68) is configured as PTB22 for adc*/
     PORT_SetPinMux(PORTB, 22U, kPORT_MuxAsGpio);
+
+    /* PORTA4 (pin x) is configured as PTA4 */
+    PORT_SetPinMux(PORTA, 4U, kPORT_MuxAsGpio);
+
+    /* PORTC6(pin xx) is configured as PTC6 */
+    PORT_SetPinMux(PORTC, 6U, kPORT_MuxAsGpio);
 
     /* PORTC16 (pin 90) is configured as ENET0_1588_TMR0 */
     PORT_SetPinMux(PORTC, 16U, kPORT_MuxAlt4);
