@@ -1,0 +1,11 @@
+#Ignore compilation and temporal files.
+*.o
+*.d
+*.axf
+*.ld
+*.map
+*.su
+*.jlink
+*.launch
+*.swd
+.vscode/
