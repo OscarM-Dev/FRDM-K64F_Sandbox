@@ -52,7 +52,7 @@ main-build: MQTT_practice.axf
 MQTT_practice.axf: $(OBJS) $(USER_OBJS) makefile $(OPTIONAL_TOOL_DEPS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: MCU Linker'
-	arm-none-eabi-gcc -nostdlib -L"C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F_Practices\FRDM-K64F_Sandbox\mmcau\asm-cm4-cm7" -Xlinker -Map="MQTT_practice.map" -Xlinker --gc-sections -Xlinker -print-memory-usage -Xlinker --sort-section=alignment -Xlinker --cref -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -T frdmk64f_mbedtls_benchmark_Debug.ld -o "MQTT_practice.axf" $(OBJS) $(USER_OBJS) $(LIBS) -l_mmcau
+	arm-none-eabi-gcc -nostdlib -L"C:\Users\Familia\Documents\Especialidad_ITESO\Semestre_1\Redes_comunicacion\K64F_Practices\FRDM-K64F_Sandbox\mmcau\asm-cm4-cm7" -Xlinker -Map="MQTT_practice.map" -Xlinker --gc-sections -Xlinker -print-memory-usage -Xlinker --sort-section=alignment -Xlinker --cref -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -T MQTT_practice_Debug.ld -o "MQTT_practice.axf" $(OBJS) $(USER_OBJS) $(LIBS) -l_mmcau
 	@echo 'Finished building target: $@'
 	@echo ' '
 

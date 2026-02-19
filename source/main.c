@@ -26,6 +26,9 @@
  ******************************************************************************/
 #define NUM_RANDOM 15
 #define RAND_SEED  12345
+#define CHACHA20_KEY_SIZE     32
+#define CHACHA20_NONCE_SIZE   12
+#define CHACHA20_COUNTER      0
 
 /*******************************************************************************
  * Private functions prototypes
@@ -33,6 +36,7 @@
 static int myrand( void *rng_state, uint8_t *output, size_t len );
 static int8_t chacha20_encrypt( uint8_t *key, uint8_t *nonce, uint32_t counter, size_t length, uint8_t *input, uint8_t *output );
 static int8_t chacha20_decrypt( uint8_t *key, uint8_t *nonce, uint32_t counter, size_t length, uint8_t *input, uint8_t *output );
+static void chacha20_example( void );
 
 /*******************************************************************************
  * Private functions definition
@@ -116,9 +120,72 @@ int8_t chacha20_encrypt( uint8_t *key, uint8_t *nonce, uint32_t counter, size_t 
  */
 int8_t chacha20_decrypt( uint8_t *key, uint8_t *nonce, uint32_t counter, size_t length, uint8_t *input, uint8_t *output )
 {
-    return chacha20_encrypt( key, nonce, counter, input, output, length );
+    return chacha20_encrypt( key, nonce, counter, length, input, output );
 }
 
+/**
+ * @brief This function encrypts and decrypts a simple message to print via serial terminal.
+ * 
+ */
+void chacha20_example( void )
+{
+    uint8_t key[CHACHA20_KEY_SIZE];
+    uint8_t nonce[CHACHA20_NONCE_SIZE];
+    uint8_t plaintext[]  = "Hello from FRDM-K64F with ChaCha20";
+    uint8_t ciphertext[sizeof(plaintext)];
+    uint8_t decrypted[sizeof(plaintext)];
+    mbedtls_ctr_drbg_context ctrDrbg;
+
+    //Generating seed for RAND function.
+    srand( RAND_SEED );
+
+    //Initializing drbg and generating seed with rand source entropy.
+    mbedtls_ctr_drbg_init( &ctrDrbg );
+    if ( !mbedtls_ctr_drbg_seed( &ctrDrbg, myrand, NULL, NULL, 0 ) )
+    {
+        //Generating random data for keystream input matrix ( encryption key and nonce ).
+        mbedtls_ctr_drbg_random( &ctrDrbg, key, CHACHA20_KEY_SIZE );
+        mbedtls_ctr_drbg_random( &ctrDrbg, nonce, CHACHA20_NONCE_SIZE );
+
+        PRINTF( "Plaintext: %s\r\n", plaintext );
+
+        //Encrypt data.
+        if ( !chacha20_encrypt( key, nonce, CHACHA20_COUNTER, sizeof( plaintext ), plaintext, ciphertext ) )
+        {
+            PRINTF( "Ciphertext (HEX): " );
+            
+            for ( uint32_t i = 0; i < sizeof( plaintext ); i++ )
+            {
+                PRINTF( "%02X ", ciphertext[i] );
+            }
+            
+            PRINTF( "\r\n" );
+
+            //Decrypt data.
+            if ( !chacha20_decrypt( key, nonce, CHACHA20_COUNTER, sizeof( plaintext ), ciphertext, decrypted ) )
+            {
+                PRINTF( "Decryptedtext: %s\r\n", decrypted );
+            }
+
+            else
+            {
+                PRINTF( "Decryption error\r\n" );
+            }
+        }
+
+        else
+        {
+            PRINTF( "Encryption error\r\n" );
+        }
+    }
+
+    else
+    {
+        PRINTF( "Seed error\r\n" );
+    }    
+
+    mbedtls_ctr_drbg_free( &ctrDrbg );
+}
 
 /*******************************************************************************
  * Private functions definition
@@ -134,6 +201,8 @@ int main(void)
     BOARD_InitDebugConsole();
 
     PRINTF( "\r\nMbedTLS chacha20 example start.\r\n" );
+
+    chacha20_example();
 
     while ( 1 )
     {
