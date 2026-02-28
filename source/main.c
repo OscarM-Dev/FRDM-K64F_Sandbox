@@ -2,7 +2,7 @@
  * @file main.c
  * @author Oscar Mercado, omercadorico@gmail.com
  * @brief This file contains a simple example of the use of the mbedTLS library to encrypt and decrypt a message
- * using ChaCha20.
+ * using AES-128.
  * 
  */
 /*******************************************************************************
@@ -14,7 +14,7 @@
 #include "mbedtls/platform.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
-#include "mbedtls/chacha20.h"
+#include "mbedtls/aes.h"
 #include "fsl_debug_console.h"
 #include "fsl_clock.h"
 #include "pin_mux.h"
@@ -24,19 +24,17 @@
 /*******************************************************************************
  * Macros
  ******************************************************************************/
-#define NUM_RANDOM 15
 #define RAND_SEED  12345
-#define CHACHA20_KEY_SIZE     32
-#define CHACHA20_NONCE_SIZE   12
-#define CHACHA20_COUNTER      0
+#define AES_KEY_SIZE_BYTES     16    //AES-128 
+#define AES_BLOCK_SIZE_BYTES   16
 
 /*******************************************************************************
  * Private functions prototypes
  ******************************************************************************/
 static int myrand( void *rng_state, uint8_t *output, size_t len );
-static int8_t chacha20_encrypt( uint8_t *key, uint8_t *nonce, uint32_t counter, size_t length, uint8_t *input, uint8_t *output );
-static int8_t chacha20_decrypt( uint8_t *key, uint8_t *nonce, uint32_t counter, size_t length, uint8_t *input, uint8_t *output );
-static void chacha20_example( void );
+static int8_t aes_encrypt_buffer( uint8_t *key, uint8_t *input, uint8_t *output, size_t length );
+static int8_t aes_decrypt_buffer( uint8_t *key, uint8_t *input, uint8_t *output, size_t length );
+static void aes_example( void );
 
 /*******************************************************************************
  * Private functions definition
@@ -73,117 +71,176 @@ static int myrand( void *rng_state, uint8_t *output, size_t len )
 }
 
 /**
- * @brief This function encrypts a given buffer with ChaCha20 using mbedTLS library.
- * 
- * @param key Pointer to encryption key.
- * @param nonce Pointer to nonce.
- * @param counter Initial counter value to use for keystream.
- * @param length Number of bytes to encrypt ( input buffer size ).
- * @param input Pointer to input buffer ( plain text ).
- * @param output Pointer to output buffer ( cypher text ).
+ * @brief Encrypts a buffer using AES-128 ECB mode.
+ *
+ * @param key Pointer to AES key (16 bytes).
+ * @param input Pointer to plaintext buffer.
+ * @param output Pointer to ciphertext buffer.
+ * @param length Buffer length (must be multiple of 16 bytes).
+ *
  * @retval Operation result.
  */
-int8_t chacha20_encrypt( uint8_t *key, uint8_t *nonce, uint32_t counter, size_t length, uint8_t *input, uint8_t *output )
+static int8_t aes_encrypt_buffer( uint8_t *key, uint8_t *input, uint8_t *output, size_t length )
 {
     int8_t result = -1;
-    mbedtls_chacha20_context ctx;
+    mbedtls_aes_context ctx;
+    size_t offset = 0U;
 
-    if ( key != NULL && nonce != NULL && input != NULL && output != NULL )
-    {
-        //Initialize chacha20 context struct.
-        mbedtls_chacha20_init( &ctx );
+    if ( ( key != NULL ) && ( input != NULL ) && ( output != NULL ) )
+    {   
+        //AES-ECB works on 16-byte blocks only.
+        if ( ( length % AES_BLOCK_SIZE_BYTES ) == 0 )
+        {
+            //Initialize AES context structure.
+            mbedtls_aes_init( &ctx );
 
-        //Register input matrix for keystrem generation.
-        mbedtls_chacha20_setkey( &ctx, key );
-        mbedtls_chacha20_starts( &ctx, nonce, counter );
+            //Configure encryption key (128 bits).
+            if ( mbedtls_aes_setkey_enc( &ctx, key, 128 ) == 0 )
+            {
+                //Process buffer block by block.
+                while ( offset < length )
+                {   
+                    //Encrypt one 16-byte block.
+                    if ( mbedtls_aes_crypt_ecb( &ctx, MBEDTLS_AES_ENCRYPT, &input[offset], &output[offset] ) != 0 )
+                    {
+                        result = -1;
+                        break;
+                    }
 
-        //Generate n 64byte keystreams and xor them with input buffer.
-        result = mbedtls_chacha20_update( &ctx, length, input, output );
-
-        //Free chacha20 context struct.
-        mbedtls_chacha20_free( &ctx );  
-    }   
+                    //Move to next block.
+                    offset += AES_BLOCK_SIZE_BYTES;
+                    result = 0;
+                }
+            }
+            
+            //Release AES context resources.
+            mbedtls_aes_free( &ctx );
+        }
+    }
 
     return result;
 }
 
 /**
- * @brief This function decrypts a given buffer with ChaCha20 using mbedTLS library.
- * 
- * @param key Pointer to encryption key.
- * @param nonce Pointer to nonce.
- * @param counter Initial counter value to use for keystream.
- * @param length Number of bytes to decrypt ( input buffer size ).
- * @param input Pointer to input buffer ( cypher text ).
- * @param output Pointer to output buffer ( plain text ).
+ * @brief Decrypts a buffer using AES-128 ECB mode.
+ *
+ * @param key Pointer to AES key (16 bytes).
+ * @param input Pointer to ciphertext buffer.
+ * @param output Pointer to plaintext buffer.
+ * @param length Buffer length (must be multiple of 16 bytes).
+ *
  * @retval Operation result.
  */
-int8_t chacha20_decrypt( uint8_t *key, uint8_t *nonce, uint32_t counter, size_t length, uint8_t *input, uint8_t *output )
+static int8_t aes_decrypt_buffer( uint8_t *key, uint8_t *input, uint8_t *output, size_t length )
 {
-    return chacha20_encrypt( key, nonce, counter, length, input, output );
+    int8_t result = -1;
+    mbedtls_aes_context ctx;
+    size_t offset = 0U;
+
+    if ( ( key != NULL ) && ( input != NULL ) && ( output != NULL ) )
+    {   
+        //AES-ECB works on 16-byte blocks only.
+        if ( ( length % AES_BLOCK_SIZE_BYTES ) == 0U )
+        {
+            //Initialize AES context structure.
+            mbedtls_aes_init( &ctx );
+
+            //Configure decryption key (128 bits).
+            if ( mbedtls_aes_setkey_dec( &ctx, key, 128 ) == 0 )
+            {   
+                //Process buffer block by block.
+                while ( offset < length )
+                {   
+                    //Decrypt one 16-byte block.
+                    if ( mbedtls_aes_crypt_ecb( &ctx, MBEDTLS_AES_DECRYPT, &input[offset], &output[offset] ) != 0 )
+                    {
+                        result = -1;
+                        break;
+                    }
+
+                    //Move to next block.
+                    offset += AES_BLOCK_SIZE_BYTES;
+                    result = 0;
+                }
+            }
+
+            //Release AES context resources.
+            mbedtls_aes_free( &ctx );
+        }
+    }
+
+    return result;
 }
 
 /**
- * @brief This function encrypts and decrypts a simple message to print via serial terminal.
- * 
+ * @brief Demonstrates AES encryption and decryption of multiple messages.
  */
-void chacha20_example( void )
+static void aes_example( void )
 {
-    uint8_t key[CHACHA20_KEY_SIZE];
-    uint8_t nonce[CHACHA20_NONCE_SIZE];
-    uint8_t plaintext[]  = "Hello from FRDM-K64F with ChaCha20";
-    uint8_t ciphertext[sizeof(plaintext)];
-    uint8_t decrypted[sizeof(plaintext)];
+    uint8_t key[AES_KEY_SIZE_BYTES];
     mbedtls_ctr_drbg_context ctrDrbg;
 
-    //Generating seed for RAND function.
+    //Messages must be multiple of 16 bytes
+    uint8_t msg1[16] = "AES examplemsg1";
+    uint8_t msg2[16] = "AES examplemsg2";
+    uint8_t msg3[16] = "AES examplemsg3";
+
+    uint8_t cipher[16];
+    uint8_t decrypted[16];
+
+    //Initialize pseudo-random seed.
     srand( RAND_SEED );
 
-    //Initializing drbg and generating seed with rand source entropy.
+    //Initialize DRBG context.
     mbedtls_ctr_drbg_init( &ctrDrbg );
-    if ( !mbedtls_ctr_drbg_seed( &ctrDrbg, myrand, NULL, NULL, 0 ) )
+
+    //Seed DRBG using custom entropy source. 
+    if ( mbedtls_ctr_drbg_seed( &ctrDrbg, myrand, NULL, NULL, 0 ) == 0 )
     {
-        //Generating random data for keystream input matrix ( encryption key and nonce ).
-        mbedtls_ctr_drbg_random( &ctrDrbg, key, CHACHA20_KEY_SIZE );
-        mbedtls_ctr_drbg_random( &ctrDrbg, nonce, CHACHA20_NONCE_SIZE );
+        uint8_t *messages[3] = { msg1, msg2, msg3 };
 
-        PRINTF( "Plaintext: %s\r\n", plaintext );
-
-        //Encrypt data.
-        if ( !chacha20_encrypt( key, nonce, CHACHA20_COUNTER, sizeof( plaintext ), plaintext, ciphertext ) )
+        //Generate random AES key.
+        ( void ) mbedtls_ctr_drbg_random( &ctrDrbg, key, AES_KEY_SIZE_BYTES );
+        
+        for ( uint8_t m = 0; m < 3; m++ )
         {
-            PRINTF( "Ciphertext (HEX): " );
-            
-            for ( uint32_t i = 0; i < sizeof( plaintext ); i++ )
-            {
-                PRINTF( "%02X ", ciphertext[i] );
-            }
-            
-            PRINTF( "\r\n" );
+            PRINTF( "\r\nPlaintext: %s\r\n", messages[m] );
 
-            //Decrypt data.
-            if ( !chacha20_decrypt( key, nonce, CHACHA20_COUNTER, sizeof( plaintext ), ciphertext, decrypted ) )
+            if ( aes_encrypt_buffer( key, messages[m], cipher, 16U ) == 0 )
             {
-                PRINTF( "Decryptedtext: %s\r\n", decrypted );
+                PRINTF( "Ciphertext (HEX): " );
+
+                for ( uint32_t i = 0U; i < 16U; i++ )
+                {
+                    PRINTF( "%02X ", cipher[i] );
+                }
+
+                PRINTF( "\r\n" );
+
+                if ( aes_decrypt_buffer( key, cipher, decrypted, 16U ) == 0 )
+                {
+                    PRINTF( "Decrypted: %s\r\n", decrypted );
+                }
+
+                else
+                {
+                    PRINTF( "Decryption error\r\n" );
+                }
             }
 
             else
             {
-                PRINTF( "Decryption error\r\n" );
+                PRINTF( "Encryption error\r\n" );
             }
-        }
-
-        else
-        {
-            PRINTF( "Encryption error\r\n" );
         }
     }
 
     else
     {
         PRINTF( "Seed error\r\n" );
-    }    
+    }
 
+    //Free DRBG resources.
     mbedtls_ctr_drbg_free( &ctrDrbg );
 }
 
@@ -200,9 +257,9 @@ int main(void)
     BOARD_InitBootClocks();
     BOARD_InitDebugConsole();
 
-    PRINTF( "\r\nMbedTLS chacha20 example start.\r\n" );
+    PRINTF( "\r\nMbedTLS AES example start.\r\n" );
 
-    chacha20_example();
+    aes_example();
 
     while ( 1 )
     {
